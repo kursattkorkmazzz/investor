@@ -11,3 +11,5 @@ değerlendirileceğini kaydeder. Karar değiştiğinde dosya silinmez — durumu
 | [0003](0003-rds-postgres-timescaledb-yok.md) | Veritabanı: AWS RDS PostgreSQL, TimescaleDB yok | Kabul edildi |
 | [0004](0004-canli-spot-kucuk-sermaye.md) | Faz-1: küçük sermaye ile canlı Binance Spot | Kabul edildi |
 | [0005](0005-modular-monolith-outbox.md) | Modüler monolit + transactional outbox, Kafka yok | Kabul edildi |
+| [0006](0006-jooq-yerine-jdbcclient.md) | Veri erişimi: jOOQ yerine Spring JdbcClient | Kabul edildi |
+| [0007](0007-spring-boot-4.md) | Spring Boot 4 (Jackson 3, bölünmüş autoconfiguration) | Kabul edildi |

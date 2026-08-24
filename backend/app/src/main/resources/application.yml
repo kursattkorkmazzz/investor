@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: investor
+
+  datasource:
+    url: ${INVESTOR_DB_URL:jdbc:postgresql://localhost:5432/investor}
+    username: ${INVESTOR_DB_USERNAME:investor}
+    password: ${INVESTOR_DB_PASSWORD:investor}
+    hikari:
+      maximum-pool-size: 10
+      pool-name: investor-pool
+
+  flyway:
+    enabled: true
+    # Her modül kendi migration klasörünü taşır; uygulama hepsini birleştirir.
+    locations: classpath:db/migration/ontology
+
+  # Sanal iş parçacıkları: analiz ajanları ileride paralel koşacak, engelleyen
+  # G/Ç başına platform thread'i harcamanın anlamı yok.
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${INVESTOR_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.investor: INFO
+    org.flywaydb: INFO

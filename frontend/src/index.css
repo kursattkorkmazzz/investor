@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: oklch(0.16 0.012 265);
+  --color-surface-raised: oklch(0.21 0.014 265);
+  --color-border-subtle: oklch(0.30 0.014 265);
+  --color-ink: oklch(0.93 0.008 265);
+  --color-ink-muted: oklch(0.68 0.014 265);
+  --color-accent: oklch(0.72 0.14 205);
+  --color-warn: oklch(0.72 0.15 55);
+  --color-danger: oklch(0.65 0.19 25);
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+}

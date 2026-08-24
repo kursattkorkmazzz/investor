@@ -22,10 +22,14 @@ dependencies {
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    // Boot 4'te MockMvc test desteği teknoloji başına ayrı modülde
+    testImplementation("org.springframework.boot:spring-boot-webmvc-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation(testFixtures(project(":backend:ontology-core")))
+    testImplementation("org.springframework.boot:spring-boot-flyway")
     testImplementation(libs.assertj.core)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

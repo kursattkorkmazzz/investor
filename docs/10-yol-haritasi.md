@@ -24,7 +24,7 @@ gantt
 
 ---
 
-## Faz 0 — İskelet · ~2 hafta
+## Faz 0 — İskelet · ~2 hafta · ✅ tamam
 
 Gradle çok modüllü yapı, Spring Boot + Modulith, Flyway, Testcontainers, jOOQ kod
 üretimi. Vite + React iskeleti, OpenAPI istemci üretimi. Docker Compose ile yerel
@@ -33,15 +33,16 @@ Postgres + Redis. Terraform ile RDS ve Secrets Manager. GitHub Actions.
 **Kapı:** Boş bir uçtan uca akış çalışıyor — frontend bir REST çağrısı yapıyor, backend
 Postgres'e yazıyor, Testcontainers testi CI'da yeşil.
 
-## Faz 1 — Ontoloji çekirdeği · ~4 hafta
+## Faz 1 — Ontoloji çekirdeği · ~4 hafta · ✅ tamam
 
 Meta katman, instance katmanı, bitemporal yazma/okuma, commit modeli, `EXCLUDE`
 kısıtı, `object_current` projeksiyonu, `OntologyStore` API'si, `OntologySnapshot`,
 dinamik sorgu DSL'i, Ontology Explorer ve Modeler ekranları.
 
-**Kapı:** Şu senaryo testte geçiyor — bir nesnenin bir alanını üç kez güncelle,
-arada bir kaydı geri çek, sonra üç farklı geçmiş anın her biri için "o gün ne
-biliyorduk" sorgusunu doğru cevapla.
+**Kapı:** ✅ Geçildi. `BitemporalGateTest` senaryoyu doğruluyor: bir alan üç kez
+güncelleniyor, arada bir kayıt geri çekiliyor, dört farklı geçmiş an doğru cevaplanıyor.
+Ayrıca sonradan öğrenilen bilginin geçmişe sızmadığı ve nesne varlığının da zamansal
+olduğu ayrı ayrı test ediliyor.
 
 > Bu fazın uzun olması normal ve doğru. Ontoloji yanlış kurulursa üstüne inşa edilen
 > her şey yanlış kurulur; sonradan düzeltmek çok daha pahalı.

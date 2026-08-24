@@ -31,6 +31,8 @@ subprojects {
         testLogging {
             events("passed", "skipped", "failed")
             exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            // Hata ayıklarken: ./gradlew test -Pinvestor.test.verbose
+            showStandardStreams = project.hasProperty("investor.test.verbose")
         }
         // Docker yoksa Testcontainers yerine harici Postgres kullanılabilsin (bkz. PostgresTestSupport).
         listOf("investor.test.db.url", "investor.test.db.username", "investor.test.db.password")

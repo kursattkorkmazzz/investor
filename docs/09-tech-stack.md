@@ -7,10 +7,10 @@
 | Bileşen | Seçim | Gerekçe |
 |---|---|---|
 | Dil | **Java 21 (LTS)** | Sanal iş parçacıkları (ajanları paralel koşturmak için), record'lar, sealed interface, pattern matching |
-| Çatı | **Spring Boot 3.x** | Verilen kısıt; ekosistem olgun |
-| Modülerlik | **Spring Modulith** | Modül sınırlarını testte zorlar; event publication registry hazır outbox sağlar |
+| Çatı | **Spring Boot 4.1** | Verilen kısıt; güncel kararlı sürüm. Jackson 3 ve bölünmüş autoconfiguration buradan geliyor ([ADR-0007](adr/0007-spring-boot-4.md)) |
+| Modülerlik | **Spring Modulith 2.1** | Modül sınırlarını testte zorlar; event publication registry hazır outbox sağlar |
 | Derleme | **Gradle (Kotlin DSL)** | Çok modüllü yapıda Maven'dan hızlı, yapılandırması okunur |
-| Veri erişimi | **jOOQ** | Bitemporal sorgular, recursive CTE, `EXCLUDE` kısıtları — hepsi elle SQL gerektiriyor. jOOQ bunu tip güvenli yapar; kolon adı değişince derleme kırılır. Bedeli: build'e kod üretim adımı. |
+| Veri erişimi | **Spring `JdbcClient`** | Elle SQL. jOOQ kod üretimi build'i canlı veritabanına ya da Postgres'e özgü DDL ayrıştırmasına bağımlı kılıyordu ([ADR-0006](adr/0006-jooq-yerine-jdbcclient.md)). Tip güvenliğini gerçek PostgreSQL'e karşı koşan testler telafi ediyor. |
 | Migration | **Flyway** | Modül başına migration klasörü |
 | Teknik analiz | **ta4j** | Olgun Java indikatör kütüphanesi; hesap deterministik kalır |
 | LLM | **Anthropic Java SDK** (`com.anthropic:anthropic-java`) | Yapılandırılmış çıktı, prompt caching, adaptive thinking, `effort` ve token muhasebesine gecikmesiz erişim |
@@ -18,7 +18,7 @@
 | Dayanıklılık | **Resilience4j** | Circuit breaker, retry, rate limiter |
 | Zamanlama kilidi | **ShedLock** | Çoklu instance'ta işin tek yerde koşması |
 | Gözlemlenebilirlik | **Micrometer + OpenTelemetry** | LLM çağrıları span olarak izlenir; maliyet metrik olur |
-| JSON | **Jackson** | |
+| JSON | **Jackson 3** (`tools.jackson`) | Boot 4 varsayılanı. Ontoloji modülü kendi eşleyicisini kurar — saklanan JSON'un serileşmesi uygulamanın sunum ayarlarına bağlanmamalı. |
 
 ### Neden Spring AI değil de doğrudan SDK
 
@@ -28,6 +28,14 @@ caching kırılma noktalarının konumlandırılması, `output_config` ile yapı
 birinci sınıf ihtiyaçlar. Bunları kendi `LlmClient` port'umuzun arkasında doğrudan
 SDK ile kullanıyoruz (bkz. [05](05-analiz-ajanlari.md)). Sağlayıcı bağımsızlığı ileride
 gerçekten gerekirse, değişecek tek sınıf `LlmClient` implementasyonu.
+
+### Kod üretimi neden yok
+
+jOOQ'nun tip güvenliği cazipti ama kod üretimi ya build sırasında ayakta bir veritabanı
+ister ya da DDL'i ayrıştırabilmeyi. Şemamız `EXCLUDE USING gist`, `tstzrange` ifadeleri,
+kısmi indeksler ve plpgsql fonksiyonları içeriyor; ayrıştırıcı bunları kaçırırsa üretilen
+kod şemanın bir kısmını sessizce ıskalar. Bunun yerine SQL elle yazılıyor ve gerçek
+PostgreSQL'e karşı test ediliyor. Ayrıntı: [ADR-0006](adr/0006-jooq-yerine-jdbcclient.md).
 
 ### Neden JPA/Hibernate değil
 
@@ -142,3 +150,4 @@ doğrulaması olmadan canlıya çıkamaz.
 | **Kubernetes** | Tek konteyner grubu için maliyet ve karmaşıklık | Çoklu bölge veya çoklu kullanıcı |
 | **Ayrı vektör DB** | pgvector bu ölçekte fazlasıyla yeterli | Milyonlarca embedding'e çıkarsa |
 | **Hibernate/JPA** | EAV + bitemporal ile uyumsuz | — |
+| **jOOQ** | Kod üretimi build'e canlı DB ya da DDL ayrıştırma bağımlılığı ekliyordu | Elle SQL'de kolon/tip hataları tekrarlayan bir sorun hâline gelirse |

@@ -575,6 +575,11 @@ DecisionRef -ABOUT->          Instrument
 Lesson      -DERIVED_FROM->   DecisionRef
 ```
 
+Kardinalite kaynak ve hedef taraflarını ayrı ayrı sınırlar. `Instrument -TRADES_ON-> Exchange`
+bir `MANY_TO_ONE`'dır: bir enstrüman tek borsada işlem görür, bir borsada çok enstrüman
+bulunur. Yeni bir bağ kurulurken sınırlı taraftaki mevcut açık bağ **kapatılır**, silinmez —
+"mart ayında hangi borsadaydı" sorusu cevaplanabilir kalır.
+
 `CORRELATES_WITH` bitemporal ilişkinin neden değerli olduğunun iyi bir örneği:
 BTC–NASDAQ korelasyonu 2022'de 0.7, 2024'te 0.2 idi. İkisini de saklıyoruz; bir kararı
 denetlerken "o gün hangi korelasyonu varsayıyorduk" sorusu cevaplanabiliyor.

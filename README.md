@@ -7,7 +7,9 @@ tek bir **dinamik ontoloji** üzerinde birleştirir; her al-sat kararını gerek
 güven skoru ve sonucuyla birlikte kayıt altına alan bir **decision engine** üzerinden
 yürütür; kapanan her karardan öğrenerek kendini kalibre eder.
 
-> **Durum:** Tasarım aşaması. Kod henüz yok — bu repo şu an mimari planı barındırıyor.
+> **Durum:** Faz 0 ve Faz 1 tamam. Ontoloji çekirdeği çalışıyor: bitemporal şema, Java
+> API'si, dinamik sorgu derleyicisi, REST katmanı ve Ontology Explorer arayüzü. Sıradaki
+> faz veri hatları (Binance OHLCV, haber, makro) — bkz. [yol haritası](docs/10-yol-haritasi.md).
 
 ---
 
@@ -27,6 +29,33 @@ gerekçesiyle birlikte mühürlenir; böylece sonradan hikâye uydurmak (hindsig
 yapısal olarak imkânsız hale gelir.
 
 ---
+
+## Çalıştırma
+
+```bash
+# 1. Bağımlılıklar (PostgreSQL + Redis)
+docker compose -f infra/docker-compose.yml up -d
+
+# 2. Backend — şemayı Flyway kurar, http://localhost:8080
+./gradlew :backend:app:bootRun
+
+# 3. Frontend — http://localhost:5173 (API'ye proxy'lenir)
+cd frontend && npm install && npm run dev
+```
+
+Testler gerçek PostgreSQL ister; `EXCLUDE` kısıtları, `tstzrange` operatörleri ve plpgsql
+fonksiyonları gömülü bir veritabanında yok — onlarsız test edilen şey üretimde koşan şey
+olmaz. Docker varsa Testcontainers kendiliğinden devreye girer:
+
+```bash
+./gradlew build
+
+# Docker yoksa harici bir test veritabanı verilebilir.
+# DİKKAT: verilen veritabanının public şeması her koşuda sıfırdan kurulur.
+./gradlew build   -Dinvestor.test.db.url=jdbc:postgresql://localhost:5432/investor_test   -Dinvestor.test.db.username=investor -Dinvestor.test.db.password=investor
+```
+
+API dokümanı: `http://localhost:8080/swagger-ui.html`
 
 ## Doküman haritası
 
@@ -50,9 +79,9 @@ Mimari kararların gerekçeleri: [docs/adr/](docs/adr/)
 
 ## Tech stack (özet)
 
-- **Backend:** Java 21 · Spring Boot 3 · Spring Modulith · Spring AI · ta4j · Flyway
-- **Frontend:** React 19 · TypeScript · Vite · TanStack Query · Tailwind · lightweight-charts
-- **Veri:** PostgreSQL (AWS RDS) · pgvector · pg_partman · Redis (ElastiCache/Valkey)
+- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · (ileride ta4j, Anthropic Java SDK)
+- **Frontend:** React 19 · TypeScript · Vite · TanStack Query · Tailwind 4 · (ileride lightweight-charts)
+- **Veri:** PostgreSQL 16 (AWS RDS) · pg_partman · Redis (Valkey) · (ileride pgvector)
 - **Borsa:** Binance Spot (REST + WebSocket), `ExchangePort` arkasında soyutlanmış
 
 Detay ve gerekçeler: [docs/09-tech-stack.md](docs/09-tech-stack.md)

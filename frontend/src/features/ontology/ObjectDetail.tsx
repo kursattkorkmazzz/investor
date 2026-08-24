@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { ObjectType, PropertyType } from '@/api/types';
+import type { ObjectType } from '@/api/types';
 import { Badge, Empty, ErrorNote, Panel } from '@/components/ui';
 import { exactValue, formatValue } from '@/lib/format';
+import { resolveProperties } from '@/lib/schema';
 import { AsOfControl } from './AsOfControl';
 import { PropertyHistory } from './PropertyHistory';
 
-export function ObjectDetail({ objectId, type, asOf, onAsOfChange }: {
+export function ObjectDetail({ objectId, type, allTypes, asOf, onAsOfChange }: {
   objectId: string;
   type: ObjectType;
+  allTypes: ObjectType[];
   asOf: string | null;
   onAsOfChange: (next: string | null) => void;
 }) {
@@ -20,7 +22,7 @@ export function ObjectDetail({ objectId, type, asOf, onAsOfChange }: {
     queryFn: () => api.object(objectId, asOf ?? undefined),
   });
 
-  const properties = visibleProperties(type);
+  const properties = resolveProperties(type, allTypes);
 
   return (
     <Panel
@@ -92,10 +94,4 @@ export function ObjectDetail({ objectId, type, asOf, onAsOfChange }: {
       )}
     </Panel>
   );
-}
-
-/** Kalıtılan alanlar da gösterilmeli; şu an tip hiyerarşisi tek seviye derinlikte çözülüyor. */
-function visibleProperties(type: ObjectType): PropertyType[] {
-  return [...type.properties].sort((a, b) => a.displayOrder - b.displayOrder
-    || a.apiName.localeCompare(b.apiName));
 }

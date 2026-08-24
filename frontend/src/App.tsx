@@ -62,6 +62,7 @@ export default function App() {
             <ObjectDetail
               objectId={selectedObject}
               type={activeType}
+              allTypes={types}
               asOf={asOf}
               onAsOfChange={setAsOf}
             />

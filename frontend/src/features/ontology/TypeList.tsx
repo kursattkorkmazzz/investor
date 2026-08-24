@@ -1,5 +1,6 @@
 import type { ObjectType } from '@/api/types';
 import { Badge, Empty, Panel } from '@/components/ui';
+import { resolveProperties } from '@/lib/schema';
 
 export function TypeList({ types, selected, onSelect }: {
   types: ObjectType[];
@@ -32,7 +33,7 @@ export function TypeList({ types, selected, onSelect }: {
               <div className="text-[11px] text-ink-muted">
                 {type.apiName}
                 {type.parentTypeApiName && ` ← ${type.parentTypeApiName}`}
-                {` · v${type.currentVersion} · ${type.properties.length} alan`}
+                {` · v${type.currentVersion} · ${resolveProperties(type, types).length} alan`}
               </div>
             </button>
           </li>

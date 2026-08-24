@@ -1,0 +1,13 @@
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/ontology
+    # Şema, her koşuda sıfırdan kurulur (bkz. PostgresResource).
+    clean-disabled: false
+  jackson:
+    default-property-inclusion: non_null
+
+logging:
+  level:
+    org.springframework.jdbc.core: INFO
+    org.flywaydb: WARN

@@ -1,0 +1,25 @@
+[versions]
+springBoot      = "4.1.1"
+springModulith  = "2.1.0"
+postgresql      = "42.7.13"
+flyway          = "13.3.0"
+testcontainers  = "1.21.4"
+springdoc       = "3.1.0"
+assertj         = "3.27.6"
+awaitility      = "4.3.0"
+
+[libraries]
+spring-boot-bom       = { module = "org.springframework.boot:spring-boot-dependencies",   version.ref = "springBoot" }
+spring-modulith-bom   = { module = "org.springframework.modulith:spring-modulith-bom",    version.ref = "springModulith" }
+
+postgresql            = { module = "org.postgresql:postgresql",                            version.ref = "postgresql" }
+flyway-core           = { module = "org.flywaydb:flyway-core",                             version.ref = "flyway" }
+flyway-postgresql     = { module = "org.flywaydb:flyway-database-postgresql",              version.ref = "flyway" }
+springdoc-webmvc      = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui",    version.ref = "springdoc" }
+
+testcontainers-bom    = { module = "org.testcontainers:testcontainers-bom",                version.ref = "testcontainers" }
+assertj-core          = { module = "org.assertj:assertj-core",                             version.ref = "assertj" }
+awaitility            = { module = "org.awaitility:awaitility",                            version.ref = "awaitility" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

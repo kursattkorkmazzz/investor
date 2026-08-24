@@ -42,3 +42,6 @@ tmp/
 # İşletim sistemi
 .DS_Store
 Thumbs.db
+
+# Gradle wrapper jar'ı repoda tutulur; diğer build çıktıları tutulmaz
+!gradle/wrapper/gradle-wrapper.properties

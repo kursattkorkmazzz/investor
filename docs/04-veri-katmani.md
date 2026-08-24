@@ -1,0 +1,266 @@
+# 04 — Veri Katmanı
+
+Ontoloji "yavaş değişen gerçekler" içindir. Bu doküman, ontolojiye girmeyen yüksek
+frekanslı piyasa verisini ve ontolojiyi besleyen ingest hatlarını anlatır.
+
+---
+
+## Piyasa verisi
+
+### Neyi saklıyoruz, neyi saklamıyoruz
+
+| Veri | Karar | Gerekçe |
+|---|---|---|
+| OHLCV (1m taban + rollup'lar) | **Kalıcı sakla** | Tüm teknik analizin girdisi |
+| Funding rate, open interest | **Kalıcı sakla** | Düşük hacim, yüksek sinyal |
+| Ham tick geçmişi | **Saklama** | Yılda ~200 GB; karar döngümüz 15m, kullanımı yok |
+| Order book anlık görüntüsü | **Sadece canlı buffer** | Emir anındaki spread/likidite kontrolü için gerekli, geçmişi değil |
+
+Tick geçmişini saklamamak bilinçli bir karar: LLM tabanlı bir sistemde karar döngüsü
+saniyeler sürer, tick seviyesinde tepki veremez. Emir gönderirken gereken canlı
+spread/derinlik bilgisi Redis'te 30 saniyelik pencerede tutulur, diske yazılmaz.
+
+### Şema
+
+```sql
+CREATE TABLE instrument (
+    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    object_id     uuid NOT NULL UNIQUE REFERENCES object_instance(id),  -- ontoloji bağı
+    exchange      text NOT NULL,
+    symbol        text NOT NULL,
+    base_asset    text NOT NULL,
+    quote_asset   text NOT NULL,
+    status        text NOT NULL,          -- TRADING | HALT | DELISTED
+    tick_size     numeric(20,10) NOT NULL,
+    step_size     numeric(20,10) NOT NULL,
+    min_notional  numeric(20,8)  NOT NULL,
+    UNIQUE (exchange, symbol)
+);
+
+CREATE TABLE ohlcv (
+    instrument_id   bigint        NOT NULL REFERENCES instrument(id),
+    tf              text          NOT NULL,   -- '1m','5m','15m','1h','4h','1d'
+    open_time       timestamptz   NOT NULL,
+    close_time      timestamptz   NOT NULL,
+    open            numeric(20,8) NOT NULL,
+    high            numeric(20,8) NOT NULL,
+    low             numeric(20,8) NOT NULL,
+    close           numeric(20,8) NOT NULL,
+    volume          numeric(30,8) NOT NULL,
+    quote_volume    numeric(30,8) NOT NULL,
+    trade_count     integer       NOT NULL,
+    taker_buy_base  numeric(30,8),
+    is_final        boolean       NOT NULL DEFAULT false,
+    ingested_at     timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (instrument_id, tf, open_time)
+) PARTITION BY RANGE (open_time);
+
+CREATE TABLE derivative_metric (
+    instrument_id  bigint      NOT NULL REFERENCES instrument(id),
+    metric         text        NOT NULL,      -- FUNDING_RATE | OPEN_INTEREST | LONG_SHORT_RATIO
+    observed_at    timestamptz NOT NULL,
+    value          numeric(30,10) NOT NULL,
+    PRIMARY KEY (instrument_id, metric, observed_at)
+) PARTITION BY RANGE (observed_at);
+```
+
+### Partition yönetimi (TimescaleDB olmadan)
+
+RDS'te `pg_partman` mevcut; aylık partition'lar ve saklama politikası onunla yönetilir:
+
+```sql
+SELECT partman.create_parent(
+    p_parent_table    => 'public.ohlcv',
+    p_control         => 'open_time',
+    p_interval        => '1 month',
+    p_premake         => 3
+);
+
+UPDATE partman.part_config
+SET retention = '24 months', retention_keep_table = false
+WHERE parent_table = 'public.ohlcv';
+```
+
+Bakım işi (`partman.run_maintenance_proc`) `pg_cron` ile günlük koşar. `pg_partman` ve
+`pg_cron` kullanılabilirliği hedef RDS sürümünde deploy öncesi doğrulanacak; ikisi de
+yoksa aylık partition oluşturma işi Spring `@Scheduled` job'una taşınır (~40 satır).
+
+Arşivleme: 24 aydan eski 1m verisi S3'e Parquet olarak yazılır. Backtest'in daha geriye
+gitmesi gerekirse oradan geri yüklenir. 5m ve üstü zaman dilimleri hacimce küçük
+olduğu için süresiz saklanır.
+
+### Rollup — 1m'den üst zaman dilimleri
+
+TimescaleDB'nin `continuous aggregate`'i olmadığı için bu işi kendimiz yaparız.
+Mum kapanışında tetiklenir, idempotenttir:
+
+```sql
+INSERT INTO ohlcv (instrument_id, tf, open_time, close_time,
+                   open, high, low, close,
+                   volume, quote_volume, trade_count, taker_buy_base, is_final)
+SELECT
+    instrument_id,
+    :targetTf,
+    :bucketStart,
+    :bucketEnd,
+    (array_agg(open  ORDER BY open_time ASC ))[1],
+    max(high),
+    min(low),
+    (array_agg(close ORDER BY open_time DESC))[1],
+    sum(volume), sum(quote_volume), sum(trade_count), sum(taker_buy_base),
+    true
+FROM ohlcv
+WHERE tf = '1m'
+  AND instrument_id = :instrumentId
+  AND open_time >= :bucketStart
+  AND open_time <  :bucketEnd
+  AND is_final = true
+GROUP BY instrument_id
+HAVING count(*) = :expectedBars          -- eksik mum varsa hiç yazma
+ON CONFLICT (instrument_id, tf, open_time) DO UPDATE SET
+    high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close,
+    volume = EXCLUDED.volume, quote_volume = EXCLUDED.quote_volume,
+    trade_count = EXCLUDED.trade_count, is_final = EXCLUDED.is_final;
+```
+
+`HAVING count(*) = :expectedBars` satırı önemli: eksik 1m mumdan üretilmiş bir 15m mum,
+sessizce yanlış indikatör üretir. Eksikse rollup yazılmaz, boşluk doldurma job'ı
+tetiklenir ve bir sonraki turda tekrar denenir.
+
+### `is_final` — sessiz look-ahead hatası kaynağı
+
+Binance WebSocket kline akışı kapanmamış mumu da yayınlar (`k.x = false`).
+Kapanmamış mumdan hesaplanan indikatör, mum kapanınca değişir — backtest'te bu
+"geleceği görmek" demektir.
+
+**Kural:** karar üretimi için kullanılan tüm indikatörler yalnızca `is_final = true`
+mumlardan hesaplanır. Kapanmamış mum sadece açık pozisyonun stop/hedef takibi için
+kullanılabilir. Bu kural `MarketDataReader` API'sinde tip seviyesinde ayrılır:
+`finalBars(...)` ve `liveBar(...)` ayrı metotlardır, ikincisi analiz modülüne
+kapalıdır.
+
+### Boşluk doldurma
+
+```sql
+SELECT gs AS missing_open_time
+FROM generate_series(:from, :to, interval '1 minute') gs
+LEFT JOIN ohlcv o
+       ON o.open_time = gs AND o.instrument_id = :instrumentId AND o.tf = '1m'
+WHERE o.open_time IS NULL;
+```
+
+5 dakikada bir koşar; bulunan boşluklar Binance REST `/api/v3/klines` ile doldurulur.
+WebSocket kopmaları, deploy'lar ve borsa bakımları bu şekilde kapatılır.
+
+### Canlı buffer (Redis)
+
+| Anahtar | Tip | İçerik | TTL |
+|---|---|---|---|
+| `md:price:{symbol}` | string | son işlem fiyatı | 60 sn |
+| `md:book:{symbol}` | hash | en iyi alış/satış, 10 kademe derinlik | 10 sn |
+| `md:trades:{symbol}` | stream | son ~5000 işlem (MAXLEN) | — |
+| `md:bar:{symbol}:1m` | hash | kapanmamış mum | 120 sn |
+
+Emir göndermeden hemen önce `md:book` okunur: spread eşiği aşılmışsa veya derinlik
+emri karşılamaya yetmiyorsa emir gönderilmez (bkz. [06](06-risk-ve-execution.md)).
+
+---
+
+## Haber hattı
+
+```mermaid
+flowchart LR
+    A["Kaynaklar<br/>RSS · NewsAPI · Binance duyuruları"] --> B["Normalize<br/>URL kanonikleştirme, dil tespiti"]
+    B --> C["Deduplication<br/>SimHash kümeleme"]
+    C --> D["LLM çıkarımı<br/>varlık · duygu · önem · olay tipi"]
+    D --> E["Ontoloji yazımı<br/>NewsArticle + MENTIONS/IMPACTS"]
+    E --> F["Embedding<br/>pgvector"]
+```
+
+### Deduplication neden kritik
+
+Aynı haber 5 kaynaktan gelirse, dedup yapılmadığında sistem bunu "5 ayrı kanıt" olarak
+görür ve haberin önemini yayın hacmiyle karıştırır. Bu, haber odaklı stratejilerdeki
+en yaygın sistematik hatadır.
+
+Çözüm: başlık + ilk paragraf üzerinden SimHash, Hamming mesafesi eşiğiyle kümeleme.
+Küme başına **tek** `NewsArticle` nesnesi oluşturulur; diğer kaynaklar aynı nesneye
+ek `data_source` kaydı olarak bağlanır. Kaynak sayısı ayrı bir alan olarak tutulur
+(`sourceCount`) — kanıt ağırlığında kullanılabilir ama kanıt sayısını çoğaltmaz.
+
+### LLM çıkarımı
+
+Ucuz model (Haiku sınıfı) ile, yapılandırılmış çıktı:
+
+```json
+{
+  "entities":    [{ "externalId": "BINANCE:BTC", "role": "SUBJECT" }],
+  "eventType":   "REGULATORY",
+  "sentiment":   -0.4,
+  "materiality": 0.8,
+  "timeHorizon": "DAYS",
+  "summary":     "SEC, spot ETF onay kararını 45 gün erteledi.",
+  "isSpeculation": false
+}
+```
+
+`materiality` (önem) ile `sentiment` (yön) ayrı tutulur. "Çok olumsuz ama önemsiz"
+bir haber ile "hafif olumsuz ama çok önemli" bir haber farklı ağırlık taşımalıdır.
+
+### Zaman damgaları
+
+```
+valid_from  = haberin yayın zamanı (publishedAt)
+recorded_at = bizim topladığımız zaman (fetchedAt)
+```
+
+İkisi arasında dakikalar, bazen saatler olur. Backtest `recorded_at`'e bakar —
+yani sistem o an gerçekten haberi görmüş müydü sorusuna. Bu, haber odaklı
+backtest'lerin gerçekçi olmasını sağlayan tek mekanizma.
+
+---
+
+## Makro ve on-chain
+
+| Kaynak | Seriler | Sıklık |
+|---|---|---|
+| FRED | `FEDFUNDS`, `DFF`, `CPIAUCSL`, `DGS10`, `DTWEXBGS`, `M2SL`, `UNRATE` | günlük yenileme |
+| CoinGecko | toplam piyasa değeri, BTC dominance, stablecoin arzı | saatlik |
+| Binance | funding rate, open interest, long/short oranı | 15 dk |
+| DefiLlama | TVL (protokol ve zincir bazlı) | saatlik |
+| On-chain (opsiyonel, Faz-3) | borsa net akışı, aktif adres, balina transferleri | saatlik |
+
+### Revizyonlar — bitemporal modelin karşılığını verdiği yer
+
+Makro veriler revize edilir. CPI ilk yayınlandığı değerle kalmaz; bir ay sonra
+düzeltilir. Bir kararı denetlerken "o gün hangi CPI rakamını görüyorduk" sorusunun
+cevabı, revize edilmiş değer değil, **o gün yayında olan değer** olmalıdır.
+
+Bu yüzden her `MacroObservation`:
+- `valid_from` = gözlem döneminin sonu (örn. Temmuz ayı için 31 Temmuz)
+- `recorded_at` = yayın zamanı
+- revizyon geldiğinde eski kayıt `retracted_at` almaz — **kapatılır ve yenisi eklenir**,
+  çünkü ikisi de kendi döneminde "yayında olan gerçek"ti. `isRevision` bayrağı ayırt eder.
+
+### Ekonomik takvim
+
+`MacroEvent` nesneleri (FOMC toplantısı, CPI yayını, ETF karar tarihi) ileri tarihli
+olarak ontolojiye yazılır. Risk motoru bunu kullanır: yüksek etkili bir olayın
+öncesindeki pencerede yeni pozisyon açılmaz, mevcut pozisyonlar küçültülür.
+Bu deterministik bir kuraldır, LLM'in takdirine bırakılmaz.
+
+---
+
+## Ingest güvenilirliği
+
+- **Idempotency.** Tüm ingest yazımları `ON CONFLICT DO UPDATE` ile idempotent.
+  Aynı mumun/haberin iki kez işlenmesi çift kayıt üretmez.
+- **Devre kesici.** Her dış kaynak Resilience4j circuit breaker arkasında. Bir kaynak
+  düşerse karar turu, o kaynağın verisinin "bayat" olduğu bilgisiyle çalışır —
+  sessizce eski veriyi taze sanmaz. `OntologySnapshot` her kaynak için `freshness`
+  bilgisi taşır; bir kaynak eşiğin üstünde bayatsa ilgili ajan `abstain` eder.
+- **Ham veri kopyası.** Her dış cevabın ham hâli S3'e yazılır (`data_source.raw_ref`).
+  Parse hatası bulunduğunda geçmiş yeniden işlenebilir.
+- **Rate limit.** Binance ağırlık (weight) bütçesi Redis'te sayılır; bütçenin %80'i
+  aşılınca ingest yavaşlatılır, emir gönderme yolu için rezerv ayrılır. Emir gönderme
+  hiçbir zaman veri toplama yüzünden rate limit'e takılmaz.

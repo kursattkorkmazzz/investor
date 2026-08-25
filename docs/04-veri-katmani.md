@@ -229,9 +229,16 @@ Küme başına **tek** `NewsArticle` nesnesi oluşturulur; diğer kaynaklar ayn�
 ek `data_source` kaydı olarak bağlanır. Kaynak sayısı ayrı bir alan olarak tutulur
 (`sourceCount`) — kanıt ağırlığında kullanılabilir ama kanıt sayısını çoğaltmaz.
 
-### LLM çıkarımı
+### Çıkarım
 
-Ucuz model (Haiku sınıfı) ile, yapılandırılmış çıktı:
+Çıkarım bir portun arkasında: `NewsExtractor`. Faz 2'de kural tabanlı bir varsayılan
+kullanılıyor — hattın LLM olmadan da uçtan uca çalışması, ingest'in doğruluğunu (zaman
+damgaları, tekilleştirme, ontoloji yazımı) model kalitesinden bağımsız test etmeyi
+sağlıyor. Kural tabanlı çıkarımın üretebileceği önem skoru bilinçli olarak düşük tavanlı;
+zayıf bir çıkarımın yüksek güvenle konuşması kalibrasyonu baştan bozardı.
+
+Faz 3'te LangChain4j üzerinden LLM gerçeklemesi bunun yerini alacak
+([ADR-0008](adr/0008-langchain4j.md)). Beklenen çıktı biçimi:
 
 ```json
 {
@@ -273,15 +280,29 @@ backtest'lerin gerçekçi olmasını sağlayan tek mekanizma.
 
 ### Revizyonlar — bitemporal modelin karşılığını verdiği yer
 
-Makro veriler revize edilir. CPI ilk yayınlandığı değerle kalmaz; bir ay sonra
-düzeltilir. Bir kararı denetlerken "o gün hangi CPI rakamını görüyorduk" sorusunun
-cevabı, revize edilmiş değer değil, **o gün yayında olan değer** olmalıdır.
+Makro veriler revize edilir. Temmuz CPI'ı 15 Ağustos'ta 314.2 olarak yayınlanır,
+15 Eylül'de 314.5'e düzeltilir. Bir kararı denetlerken "o gün hangi CPI rakamını
+görüyorduk" sorusunun cevabı, revize edilmiş değer değil **o gün yayında olan değer**
+olmalıdır.
 
-Bu yüzden her `MacroObservation`:
-- `valid_from` = gözlem döneminin sonu (örn. Temmuz ayı için 31 Temmuz)
-- `recorded_at` = yayın zamanı
-- revizyon geldiğinde eski kayıt `retracted_at` almaz — **kapatılır ve yenisi eklenir**,
-  çünkü ikisi de kendi döneminde "yayında olan gerçek"ti. `isRevision` bayrağı ayırt eder.
+FRED'in (ALFRED) `realtime_start` / `realtime_end` alanları tam olarak bunu veriyor ve
+ontolojinin geçerlilik aralığına birebir oturuyor:
+
+| FRED | Ontoloji | Anlamı |
+|---|---|---|
+| `realtime_start` | `valid_from` | Bu rakamın resmî rakam olmaya başladığı an |
+| `realtime_end` | `valid_to` | Hangi ana kadar resmî kaldığı (`9999-12-31` = hâlâ) |
+| `date` | `period` alanı | Gözlemin etiketlendiği dönem (değişmez) |
+
+Yani geçerlilik ekseni "bu rakam ne zaman *resmî rakamdı*" sorusunu taşıyor. Revizyon
+eskisini ezmez, kapatır.
+
+**Kayıt zamanı da yayın zamanına ayarlanır.** Bir makro rakam yayınlandığı anda dünyaya
+açılır; onu ne zaman çektiğimiz bilgi durumunu değiştirmez. Geriye dönük yüklenen on
+yıllık bir seri, bu olmadan geçmiş sorgularda hiç görünmezdi — `recorded_at` bugün olurdu.
+`CommitContext.withRecordedAt()` bu beyanı açık hale getiriyor; yanlış kullanıldığında
+geçmişi olduğundan bilgili gösterebileceği için `ontology_commit.created_at` her zaman
+gerçek yazma anını tutar ve fark denetlenebilir kalır.
 
 ### Ekonomik takvim
 

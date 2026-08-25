@@ -137,7 +137,7 @@ class JdbcInstrumentCatalog implements InstrumentCatalog {
             return;
         }
         CommitContext ctx = new CommitContext(ActorType.SYSTEM, "market-data",
-                "enstrüman tipi kuruldu", null, null, null, null);
+                "enstrüman tipi kuruldu", null, null, null, null, null);
         ontology.defineObjectType(
                 com.investor.ontology.model.NewObjectType.of(INSTRUMENT_TYPE, "Enstrüman"), ctx);
         define("symbol", "Sembol", true);
@@ -149,7 +149,7 @@ class JdbcInstrumentCatalog implements InstrumentCatalog {
 
     private void define(String apiName, String displayName, boolean title) {
         CommitContext ctx = new CommitContext(ActorType.SYSTEM, "market-data",
-                "enstrüman alanı", null, null, null, null);
+                "enstrüman alanı", null, null, null, null, null);
         var spec = com.investor.ontology.model.NewPropertyType.of(
                 apiName, displayName, com.investor.ontology.model.DataType.STRING);
         ontology.defineProperty(INSTRUMENT_TYPE, title ? spec.asTitle() : spec, ctx);

@@ -13,3 +13,4 @@ değerlendirileceğini kaydeder. Karar değiştiğinde dosya silinmez — durumu
 | [0005](0005-modular-monolith-outbox.md) | Modüler monolit + transactional outbox, Kafka yok | Kabul edildi |
 | [0006](0006-jooq-yerine-jdbcclient.md) | Veri erişimi: jOOQ yerine Spring JdbcClient | Kabul edildi |
 | [0007](0007-spring-boot-4.md) | Spring Boot 4 (Jackson 3, bölünmüş autoconfiguration) | Kabul edildi |
+| [0008](0008-langchain4j.md) | LLM katmanı: LangChain4j, kendi portlarımızın arkasında | Kabul edildi |

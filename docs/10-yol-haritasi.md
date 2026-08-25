@@ -47,7 +47,7 @@ olduğu ayrı ayrı test ediliyor.
 > Bu fazın uzun olması normal ve doğru. Ontoloji yanlış kurulursa üstüne inşa edilen
 > her şey yanlış kurulur; sonradan düzeltmek çok daha pahalı.
 
-## Faz 2 — Veri hatları · ~3 hafta · 🟡 piyasa verisi tamam, haber/makro bekliyor
+## Faz 2 — Veri hatları · ~3 hafta · ✅ tamam (canlı doğrulama hariç)
 
 **Tamamlanan — piyasa verisi:**
 `market-data` modülü. Partition'lı `ohlcv`/`derivative_metric` şeması ve kendi aylık
@@ -64,13 +64,26 @@ gösteriyor.
 bağlantısıyla ölçülebilir. Adapter WireMock'la kaydedilmiş cevap biçimine karşı test
 edildi; API'nin gerçekten bu biçimde cevap verdiği doğrulanmadı.
 
-**Bekleyen — bilgi hatları:**
-WebSocket akışı (şu an yalnızca REST). Haber toplama, dedup, çıkarım, ontolojiye yazım.
-FRED ve CoinGecko makro serileri, ekonomik takvim. Redis canlı buffer (Faz 5'e ertelendi —
-emir gönderme yolu için gerekli).
+**Tamamlanan — bilgi hatları:**
+`knowledge` modülü. XXE'ye kapalı RSS/Atom ayrıştırıcı; üç katmanlı tekilleştirme (kanonik
+URL → içerik özeti → Jaccard kümelemesi); küme başına tek `NewsArticle` nesnesi ve ayrı
+`sourceCount`; çıkarım portu (`NewsExtractor`, kural tabanlı varsayılanıyla); FRED/ALFRED
+adapter'ı ve revizyonların bitemporal geçerlilik aralıklarına eşlenmesi.
 
-**Kalan kapı:** 30 günlük kesintisiz OHLCV, sıfır boşluk; haber dedup'ı elle işaretlenmiş
-bir örneklemde %90+ isabetli.
+**Kapı:** ✅ `NewsDedupGateTest` işaretlenmiş bir örneklemde hem birleştirme hem ayırma
+yönünde sıfır hata veriyor. `MacroRevisionGateTest` bir CPI revizyonundan sonra "o gün
+hangi rakamı görüyorduk" sorusunun doğru cevaplandığını gösteriyor.
+
+**Bekleyen:**
+- WebSocket akışı (şu an yalnızca REST); canlı fiyat için Faz 5'te gerekecek
+- Ekonomik takvim (`MacroEvent`) — ücretsiz ve güvenilir bir kaynak seçilmedi
+- CoinGecko / on-chain serileri
+- Redis canlı buffer (Faz 5 — emir gönderme yolu için)
+
+**Doğrulanmamış kalan:** "30 günlük kesintisiz OHLCV, sıfır boşluk" ve haber dedup'ının
+gerçek besleme verisindeki isabeti. İkisi de canlı bağlantı gerektiriyor; bu ortamdan
+Binance, FRED ve haber kaynaklarına erişim ağ politikasıyla engelli. Dedup eşiği küçük ve
+sentetik bir örneklemde kalibre edildi, gerçek veriyle yeniden ölçülmeli.
 
 ## Faz 3 — Analiz ve kanıt üretimi · ~3 hafta
 

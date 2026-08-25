@@ -13,21 +13,22 @@
 | Veri erişimi | **Spring `JdbcClient`** | Elle SQL. jOOQ kod üretimi build'i canlı veritabanına ya da Postgres'e özgü DDL ayrıştırmasına bağımlı kılıyordu ([ADR-0006](adr/0006-jooq-yerine-jdbcclient.md)). Tip güvenliğini gerçek PostgreSQL'e karşı koşan testler telafi ediyor. |
 | Migration | **Flyway** | Modül başına migration klasörü |
 | Teknik analiz | **ta4j** | Olgun Java indikatör kütüphanesi; hesap deterministik kalır |
-| LLM | **Anthropic Java SDK** (`com.anthropic:anthropic-java`) | Yapılandırılmış çıktı, prompt caching, adaptive thinking, `effort` ve token muhasebesine gecikmesiz erişim |
+| LLM | **LangChain4j** (`dev.langchain4j` 1.19.0) + Anthropic sağlayıcısı | Proje sahibinin tercihi ([ADR-0008](adr/0008-langchain4j.md)). Kendi `LlmClient` / `NewsExtractor` portlarımızın arkasında durur; sağlayıcı ya da kütüphane değişimi tek sınıfla sınırlı kalır. |
 | İstatistik / ML | **Tribuo** | Kalibrasyon için lojistik regresyon; hafif, Java-yerel |
 | Dayanıklılık | **Resilience4j** | Circuit breaker, retry, rate limiter |
 | Zamanlama kilidi | **ShedLock** | Çoklu instance'ta işin tek yerde koşması |
 | Gözlemlenebilirlik | **Micrometer + OpenTelemetry** | LLM çağrıları span olarak izlenir; maliyet metrik olur |
 | JSON | **Jackson 3** (`tools.jackson`) | Boot 4 varsayılanı. Ontoloji modülü kendi eşleyicisini kurar — saklanan JSON'un serileşmesi uygulamanın sunum ayarlarına bağlanmamalı. |
 
-### Neden Spring AI değil de doğrudan SDK
+### LLM erişimi neden port arkasında
 
-Spring AI iyi bir soyutlama, ama sağlayıcı SDK'sının gerisinden geliyor — prompt
-caching kırılma noktalarının konumlandırılması, `output_config` ile yapılandırılmış
-çıktı, adaptive thinking, `effort` seviyesi ve token/maliyet muhasebesi bu sistemde
-birinci sınıf ihtiyaçlar. Bunları kendi `LlmClient` port'umuzun arkasında doğrudan
-SDK ile kullanıyoruz (bkz. [05](05-analiz-ajanlari.md)). Sağlayıcı bağımsızlığı ileride
-gerçekten gerekirse, değişecek tek sınıf `LlmClient` implementasyonu.
+LangChain4j bir soyutlama katmanı ve soyutlamalar eskir. Kod tabanının tamamı onun
+tiplerine bağlanırsa, sağlayıcı ya da kütüphane değişimi her dosyaya dokunur.
+
+Bu yüzden LLM erişimi her zaman kendi portlarımızın arkasında: `NewsExtractor` (Faz 2'de
+kural tabanlı varsayılanıyla yazıldı) ve `LlmClient` (Faz 3). LangChain4j gerçeklemesi
+devreye girdiğinde çağıran hiçbir kod değişmez, ve gerekirse doğrudan SDK gerçeklemesiyle
+değiştirilebilir. Takas ve gerekçe: [ADR-0008](adr/0008-langchain4j.md).
 
 ### Kod üretimi neden yok
 

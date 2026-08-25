@@ -394,6 +394,10 @@ WHERE pv.object_id = :objectId
   AND pv.retracted_at IS NULL;
 ```
 
+> **Nesnenin varlığı da zamansaldır.** `exists_from` tek eksenli olsaydı, bugün yüklenen
+> on yıllık bir seri ya geçmiş sorgularda hiç görünmez (kayıt zamanı bugün) ya da hepsi
+> baştan biliniyormuş gibi görünürdü. İki eksen bu ikilemi ortadan kaldırıyor.
+
 **Belirli bir anda BİLDİĞİMİZ** (as-of snapshot — backtest ve karar turu bunu kullanır):
 
 ```sql

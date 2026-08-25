@@ -1,0 +1,21 @@
+spring:
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration/ontology
+      - classpath:db/migration/knowledge
+    clean-disabled: false
+
+investor:
+  knowledge:
+    similarity-threshold: 0.45
+    cluster-window: PT72H
+    entity-keywords:
+      bitcoin: "ASSET:BTC"
+      btc: "ASSET:BTC"
+      ethereum: "ASSET:ETH"
+      eth: "ASSET:ETH"
+
+logging:
+  level:
+    org.flywaydb: WARN

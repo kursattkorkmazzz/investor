@@ -7,10 +7,11 @@ tek bir **dinamik ontoloji** üzerinde birleştirir; her al-sat kararını gerek
 güven skoru ve sonucuyla birlikte kayıt altına alan bir **decision engine** üzerinden
 yürütür; kapanan her karardan öğrenerek kendini kalibre eder.
 
-> **Durum:** Faz 0–1 tamam, Faz 2'nin piyasa verisi yarısı tamam.
+> **Durum:** Faz 0–2 tamam (canlı kaynak doğrulaması hariç).
 > Çalışanlar: bitemporal ontoloji çekirdeği ve Ontology Explorer; partition'lı OHLCV
-> deposu, look-ahead güvenli okuma API'si, rollup ve boşluk doldurma, Binance REST
-> adapter'ı. Bekleyenler: haber ve makro hatları, analiz ajanları, decision engine.
+> deposu, look-ahead güvenli okuma API'si, rollup ve boşluk doldurma; haber toplama ve
+> üç katmanlı tekilleştirme; makro serilerin revizyonlarıyla birlikte ontolojiye yazımı.
+> Sıradaki faz analiz ajanları ve decision engine.
 > Bkz. [yol haritası](docs/10-yol-haritasi.md).
 
 ---
@@ -82,6 +83,7 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | `backend/shared` | ✅ | Saat soyutlaması, ortak altyapı |
 | `backend/ontology-core` | ✅ | Bitemporal ontoloji: şema, store, sorgu derleyicisi |
 | `backend/market-data` | ✅ | OHLCV deposu, rollup, boşluk doldurma, Binance adapter |
+| `backend/knowledge` | ✅ | Haber toplama ve tekilleştirme, makro seriler ve revizyonlar |
 | `backend/api` | ✅ | REST katmanı (ontoloji + piyasa verisi) |
 | `backend/app` | ✅ | Spring Boot giriş noktası, modül sınırı doğrulaması |
 | `frontend` | 🟡 | Ontology Explorer; grafik ve karar ekranları bekliyor |
@@ -92,7 +94,7 @@ Mimari kararların gerekçeleri: [docs/adr/](docs/adr/)
 
 ## Tech stack (özet)
 
-- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · (ileride ta4j, Anthropic Java SDK)
+- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · (ileride ta4j, LangChain4j)
 - **Frontend:** React 19 · TypeScript · Vite · TanStack Query · Tailwind 4 · (ileride lightweight-charts)
 - **Veri:** PostgreSQL 16 (AWS RDS) · pg_partman · Redis (Valkey) · (ileride pgvector)
 - **Borsa:** Binance Spot (REST + WebSocket), `ExchangePort` arkasında soyutlanmış

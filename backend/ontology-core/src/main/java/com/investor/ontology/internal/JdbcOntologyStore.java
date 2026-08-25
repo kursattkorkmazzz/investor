@@ -295,6 +295,16 @@ class JdbcOntologyStore implements OntologyStore {
         return ctx.withCommitId(insertCommit(ctx));
     }
 
+    /**
+     * Kayıt zamanı: bağlam beyan ettiyse o, etmediyse sistem saati.
+     *
+     * <p>Geriye dönük yüklemede beyan edilen zaman kullanılır; {@code ontology_commit}
+     * satırı ise her zaman gerçek yazma anını taşır, böylece fark denetlenebilir kalır.
+     */
+    private Instant recordedAt(CommitContext ctx) {
+        return ctx.recordedAt() != null ? ctx.recordedAt() : clock.instant();
+    }
+
     private UUID resolveCommit(CommitContext ctx) {
         return ctx.commitId() != null ? ctx.commitId() : insertCommit(ctx);
     }
@@ -341,7 +351,10 @@ class JdbcOntologyStore implements OntologyStore {
     @Override
     @Transactional
     public ObjectRef createObject(String typeApiName, String externalId, CommitContext ctx) {
-        return createObject(typeApiName, externalId, Map.of(), clock.instant(), ctx);
+        // Değer verilmediğinde nesnenin var olmaya başladığı an, beyan edilen kayıt
+        // zamanıdır. Geriye dönük yüklemede bu geçmiş bir tarih olur; aksi hâlde nesne
+        // kendi verisinden sonra var olmuş görünür ve as-of sorguları onu bulamaz.
+        return createObject(typeApiName, externalId, Map.of(), recordedAt(ctx), ctx);
     }
 
     @Override
@@ -359,13 +372,16 @@ class JdbcOntologyStore implements OntologyStore {
         UUID id;
         try {
             id = jdbc.sql("""
-                    INSERT INTO object_instance (object_type_id, external_id, created_at, created_commit)
-                    VALUES (:typeId, :externalId, :createdAt, :commitId)
+                    INSERT INTO object_instance (object_type_id, external_id, exists_from,
+                                                 recorded_at, created_commit)
+                    VALUES (:typeId, :externalId, :existsFrom, :recordedAt, :commitId)
                     RETURNING id
                     """)
                     .param("typeId", type.id())
                     .param("externalId", externalId)
-                    .param("createdAt", ts(clock.instant()))
+                    // Nesne, değerlerinin geçerli olmaya başladığı andan itibaren vardır.
+                    .param("existsFrom", ts(validFrom))
+                    .param("recordedAt", ts(recordedAt(ctx)))
                     .param("commitId", commitId)
                     .query(UUID.class)
                     .single();
@@ -426,7 +442,7 @@ class JdbcOntologyStore implements OntologyStore {
                    SET deleted_at = :now, deleted_commit = :commitId
                  WHERE id = :id AND deleted_at IS NULL
                 """)
-                .param("now", ts(clock.instant()))
+                .param("now", ts(recordedAt(ctx)))
                 .param("commitId", commitId)
                 .param("id", obj.id())
                 .update();
@@ -535,7 +551,7 @@ class JdbcOntologyStore implements OntologyStore {
                  WHERE object_id = :o AND property_type_id = :p
                    AND retracted_at IS NULL AND valid_to = 'infinity'
                 """)
-                .param("now", ts(clock.instant()))
+                .param("now", ts(recordedAt(ctx)))
                 .param("o", obj.id()).param("p", pt.id())
                 .update();
         if (retracted > 0) {
@@ -597,7 +613,7 @@ class JdbcOntologyStore implements OntologyStore {
                    AND retracted_at IS NULL
                    AND valid_from = :validFrom AND valid_to = 'infinity'
                 """)
-                .param("now", ts(clock.instant()))
+                .param("now", ts(recordedAt(ctx)))
                 .param("validFrom", ts(validFrom))
                 .param("o", obj.id()).param("p", pt.id()).param("ord", ordinal)
                 .update();
@@ -638,7 +654,7 @@ class JdbcOntologyStore implements OntologyStore {
                     .param("vRef", v.ref())
                     .param("validFrom", ts(validFrom))
                     .param("validTo", ts(validTo))
-                    .param("recordedAt", ts(clock.instant()))
+                    .param("recordedAt", ts(recordedAt(ctx)))
                     .param("commitId", ctx.commitId())
                     .param("sourceId", ctx.dataSourceId())
                     .param("confidence", ctx.confidence())
@@ -735,8 +751,16 @@ class JdbcOntologyStore implements OntologyStore {
     public void link(ObjectRef from, String linkApiName, ObjectRef to,
                      LinkProperties props, Instant validFrom, CommitContext ctx) {
         LinkTypeDef lt = registry.requireLinkType(linkApiName);
-        UUID commitId = resolveCommit(ctx);
         LinkProperties p = props == null ? LinkProperties.none() : props;
+
+        // Aynı bağ zaten açıksa hiçbir şey yapma. Ingest hatları aynı ilişkiyi her turda
+        // yeniden kurmaya çalışır; her seferinde yeni bir aralık yazmak hem çakışma
+        // üretir hem geçmişi anlamsız kayıtlarla doldurur.
+        if (openLinkExists(lt.id(), from.id(), to.id())) {
+            return;
+        }
+
+        UUID commitId = resolveCommit(ctx);
 
         if (lt.cardinality().singleTargetPerSource()) {
             // Kaynağın tek hedefi olabilir: mevcut açık bağı kapat — silme.
@@ -776,7 +800,7 @@ class JdbcOntologyStore implements OntologyStore {
                     .param("props", codec.writeJson(p.properties()))
                     .param("weight", p.weight())
                     .param("validFrom", ts(validFrom))
-                    .param("recordedAt", ts(clock.instant()))
+                    .param("recordedAt", ts(recordedAt(ctx)))
                     .param("commitId", commitId)
                     .param("sourceId", ctx.dataSourceId())
                     .param("confidence", ctx.confidence())
@@ -792,6 +816,16 @@ class JdbcOntologyStore implements OntologyStore {
         if (lt.isSymmetric()) {
             insertReverseSymmetric(lt, to, from, p, validFrom, commitId, ctx);
         }
+    }
+
+    private boolean openLinkExists(UUID linkTypeId, UUID fromId, UUID toId) {
+        return jdbc.sql("""
+                SELECT count(*) FROM link_instance
+                 WHERE link_type_id = :lt AND from_object_id = :from AND to_object_id = :to
+                   AND retracted_at IS NULL AND valid_to = 'infinity'
+                """)
+                .param("lt", linkTypeId).param("from", fromId).param("to", toId)
+                .query(Long.class).single() > 0;
     }
 
     private void insertReverseSymmetric(LinkTypeDef lt, ObjectRef from, ObjectRef to, LinkProperties p,
@@ -816,7 +850,7 @@ class JdbcOntologyStore implements OntologyStore {
                 .param("props", codec.writeJson(p.properties()))
                 .param("weight", p.weight())
                 .param("validFrom", ts(validFrom))
-                .param("recordedAt", ts(clock.instant()))
+                .param("recordedAt", ts(recordedAt(ctx)))
                 .param("commitId", commitId)
                 .param("sourceId", ctx.dataSourceId())
                 .param("confidence", ctx.confidence())
@@ -965,7 +999,8 @@ class JdbcOntologyStore implements OntologyStore {
                   FROM object_instance oi
                   JOIN object_type ot ON ot.id = oi.object_type_id
                  WHERE oi.id = :id
-                   AND oi.created_at <= :t
+                   AND oi.exists_from <= :t
+                   AND oi.recorded_at <= :t
                    AND (oi.deleted_at IS NULL OR oi.deleted_at > :t)
                 """)
                 .param("id", objectId).param("t", ts(knowledgeTime))

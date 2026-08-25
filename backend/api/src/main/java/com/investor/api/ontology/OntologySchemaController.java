@@ -125,6 +125,6 @@ public class OntologySchemaController {
 
     private static CommitContext ctx(String reason, String fallback) {
         return new CommitContext(ActorType.HUMAN, "api", reason == null ? fallback : reason,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 }

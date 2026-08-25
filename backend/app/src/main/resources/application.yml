@@ -18,6 +18,7 @@ spring:
     locations:
       - classpath:db/migration/ontology
       - classpath:db/migration/marketdata
+      - classpath:db/migration/knowledge
 
   # Sanal iş parçacıkları: analiz ajanları ileride paralel koşacak, engelleyen
   # G/Ç başına platform thread'i harcamanın anlamı yok.
@@ -35,6 +36,21 @@ investor:
     staleness-tolerance: PT5M
     weight-budget: 800
     partitions-ahead: 3
+
+  knowledge:
+    scheduling-enabled: ${INVESTOR_KNOWLEDGE_ENABLED:false}
+    # İki başlığın aynı olayı anlattığını kabul etmek için gereken benzerlik.
+    # Küçük ve yapay bir örneklemde kalibre edildi; gerçek besleme verisiyle
+    # yeniden ölçülmeli (bkz. docs/04-veri-katmani.md).
+    similarity-threshold: 0.45
+    cluster-window: PT72H
+    macro-series: ${INVESTOR_MACRO_SERIES:}
+    fred-api-key: ${INVESTOR_FRED_API_KEY:}
+    entity-keywords:
+      bitcoin: "ASSET:BTC"
+      btc: "ASSET:BTC"
+      ethereum: "ASSET:ETH"
+      eth: "ASSET:ETH"
 
 server:
   port: ${INVESTOR_PORT:8080}

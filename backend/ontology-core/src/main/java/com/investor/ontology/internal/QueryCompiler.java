@@ -210,7 +210,8 @@ final class QueryCompiler {
 
         List<String> predicates = new ArrayList<>();
         predicates.add("ot.api_name IN (:types)");
-        predicates.add("oi.created_at <= :asOf");
+        predicates.add("oi.exists_from <= :asOf");
+        predicates.add("oi.recorded_at <= :asOf");
         predicates.add("(oi.deleted_at IS NULL OR oi.deleted_at > :asOf)");
 
         int i = 0;
@@ -232,7 +233,7 @@ final class QueryCompiler {
                 continue;
             }
             if ("createdAt".equals(sort.field())) {
-                orderParts.add("oi.created_at " + direction);
+                orderParts.add("oi.recorded_at " + direction);
                 continue;
             }
             PropertyTypeDef property = registry.requireProperty(query.type(), sort.field());

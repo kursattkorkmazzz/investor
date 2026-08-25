@@ -174,7 +174,16 @@ CREATE TABLE object_instance (
     id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     object_type_id uuid        NOT NULL REFERENCES object_type(id),
     external_id    text        NOT NULL,
-    created_at     timestamptz NOT NULL DEFAULT now(),
+
+    -- Nesnenin varlığı da iki eksenlidir, alan değerleri gibi:
+    --   exists_from : gerçek dünyada ne zaman var olmaya başladı
+    --   recorded_at : biz ne zaman öğrendik
+    -- Geçmişi geriye dönük yüklerken ikisi ayrışır. Tek eksenli olsaydı, bugün
+    -- yüklenen on yıllık bir seri ya geçmiş sorgularda hiç görünmez ya da hepsi
+    -- baştan biliniyormuş gibi görünürdü.
+    exists_from    timestamptz NOT NULL,
+    recorded_at    timestamptz NOT NULL,
+
     created_commit uuid        NOT NULL REFERENCES ontology_commit(id),
     deleted_at     timestamptz,
     deleted_commit uuid        REFERENCES ontology_commit(id),

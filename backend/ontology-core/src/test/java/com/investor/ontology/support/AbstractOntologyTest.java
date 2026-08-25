@@ -60,6 +60,6 @@ public abstract class AbstractOntologyTest {
     }
 
     protected CommitContext ctx(String reason) {
-        return new CommitContext(ActorType.SYSTEM, "test", reason, null, null, null, null);
+        return new CommitContext(ActorType.SYSTEM, "test", reason, null, null, null, null, null);
     }
 }

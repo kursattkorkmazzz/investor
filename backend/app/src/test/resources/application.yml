@@ -3,6 +3,7 @@ spring:
     locations:
       - classpath:db/migration/ontology
       - classpath:db/migration/marketdata
+      - classpath:db/migration/knowledge
     clean-disabled: false
 
 logging:

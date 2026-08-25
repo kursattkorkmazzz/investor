@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":backend:shared"))
     implementation(project(":backend:ontology-core"))
     implementation(project(":backend:market-data"))
+    implementation(project(":backend:knowledge"))
     implementation(project(":backend:api"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")

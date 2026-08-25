@@ -66,6 +66,39 @@ public final class TestBars {
         return bars;
     }
 
+    /**
+     * Sabit tohumlu rastgele yürüyüş — gerçekçi ama tekrarlanabilir.
+     *
+     * <p>Tetikleyici kapısının oranını ölçmek için gerekli: doğrusal bir rampada RSI
+     * doyuma ulaşır ve hiç geçiş üretmez, dolayısıyla kapı sahte bir "%0 açılma" oranı
+     * gösterir. Rastgele yürüyüş piyasanın istatistiksel dokusunu taklit ediyor.
+     *
+     * <p>Tohum sabit: aynı test her koşuda aynı seriyi görüyor. Rastgele tohumla ölçülen
+     * bir oran, koşudan koşuya değişir ve regresyonu yakalayamaz.
+     *
+     * @param driftPct   mum başına ortalama yüzde sürüklenme
+     * @param volPct     mum başına yüzde standart sapma
+     */
+    public static List<Bar> randomWalk(int count, double start, double driftPct, double volPct,
+                                       long seed) {
+        java.util.Random random = new java.util.Random(seed);
+        List<Bar> bars = new ArrayList<>(count);
+        double price = start;
+        for (int i = 0; i < count; i++) {
+            double open = price;
+            double shock = (driftPct + volPct * random.nextGaussian()) / 100.0;
+            double close = Math.max(0.01, open * (1 + shock));
+            double wick = Math.abs(open) * volPct / 200.0;
+            double high = Math.max(open, close) + wick;
+            double low = Math.max(0.005, Math.min(open, close) - wick);
+            // Hacim de oynasın: sabit hacimde z-skor tanımsız kalır.
+            double volume = 10 * Math.exp(0.4 * random.nextGaussian());
+            bars.add(bar(i, open, high, low, close, volume));
+            price = close;
+        }
+        return bars;
+    }
+
     /** Yatay seri: sabit fiyat, sıfır oynaklık. */
     public static List<Bar> flat(int count, double price) {
         List<Bar> bars = new ArrayList<>(count);

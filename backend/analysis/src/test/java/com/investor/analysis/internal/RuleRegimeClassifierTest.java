@@ -36,7 +36,7 @@ class RuleRegimeClassifierTest {
     void alignedEmasGiveUptrend() {
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 105.0, "ema50", 102.0, "ema200", 100.0)),
-                stats(Map.of("volPercentile", 50.0)));
+                stats(Map.of("volPercentileSlow", 50.0)), null);
 
         assertThat(regime.trend()).isEqualTo(Regime.Trend.UPTREND);
         assertThat(regime.volatility()).isEqualTo(Regime.Volatility.NORMAL);
@@ -49,7 +49,7 @@ class RuleRegimeClassifierTest {
     void reverseAlignmentGivesDowntrend() {
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 95.0, "ema50", 98.0, "ema200", 100.0)),
-                stats(Map.of("volPercentile", 90.0)));
+                stats(Map.of("volPercentileSlow", 90.0)), null);
 
         assertThat(regime.trend()).isEqualTo(Regime.Trend.DOWNTREND);
         assertThat(regime.volatility()).isEqualTo(Regime.Volatility.HIGH);
@@ -61,12 +61,12 @@ class RuleRegimeClassifierTest {
         // Hizalanma "doğru" ama ayrışma %0.05 — ölü bandın (%0.15) altında.
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 100.10, "ema50", 100.05, "ema200", 100.0)),
-                stats(Map.of("volPercentile", 50.0)));
+                stats(Map.of("volPercentileSlow", 50.0)), null);
 
         // Ölü bant olmasaydı bu UPTREND olurdu ve bir sonraki mumda DOWNTREND olabilirdi;
         // her savrulma bir LLM turu demek.
         assertThat(regime.trend()).isEqualTo(Regime.Trend.RANGE);
-        assertThat(regime.rationale()).contains("ölü bant");
+        assertThat(regime.rationale()).contains("ayrışmamış");
     }
 
     @Test
@@ -75,7 +75,7 @@ class RuleRegimeClassifierTest {
         // ema50-ema200 ayrışması %0.2, ema20-ema50 ayrışması %0.2 — ikisi de eşiğin üstünde.
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 100.4, "ema50", 100.2, "ema200", 100.0)),
-                stats(Map.of("volPercentile", 50.0)));
+                stats(Map.of("volPercentileSlow", 50.0)), null);
 
         assertThat(regime.trend()).isEqualTo(Regime.Trend.UPTREND);
     }
@@ -86,7 +86,7 @@ class RuleRegimeClassifierTest {
         // ema20 yüksek ama ema50 ema200'ün altında — tutarlı bir trend yok.
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 105.0, "ema50", 98.0, "ema200", 100.0)),
-                stats(Map.of("volPercentile", 50.0)));
+                stats(Map.of("volPercentileSlow", 50.0)), null);
 
         assertThat(regime.trend()).isEqualTo(Regime.Trend.RANGE);
     }
@@ -96,7 +96,7 @@ class RuleRegimeClassifierTest {
     void missingEmaGivesUnknown() {
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 105.0, "ema50", 102.0)),
-                stats(Map.of("volPercentile", 50.0)));
+                stats(Map.of("volPercentileSlow", 50.0)), null);
 
         // RANGE dönseydi "yatay seyrediyor" diye bir iddiada bulunmuş olurduk; oysa
         // elimizde iddia edecek veri yok.
@@ -110,7 +110,7 @@ class RuleRegimeClassifierTest {
     void missingVolatilityDoesNotBlockTrend() {
         Regime regime = classifier.classify(
                 indicators(Map.of("ema20", 105.0, "ema50", 102.0, "ema200", 100.0)),
-                stats(Map.of()));
+                stats(Map.of()), null);
 
         assertThat(regime.trend()).isEqualTo(Regime.Trend.UPTREND);
         assertThat(regime.volatility()).isEqualTo(Regime.Volatility.UNKNOWN);
@@ -118,13 +118,49 @@ class RuleRegimeClassifierTest {
     }
 
     @Test
-    @DisplayName("Oynaklık eşikleri persentile göre")
-    void volatilityThresholds() {
-        assertThat(volatilityAt(10)).isEqualTo(Regime.Volatility.LOW);
-        assertThat(volatilityAt(25)).isEqualTo(Regime.Volatility.NORMAL);
-        assertThat(volatilityAt(50)).isEqualTo(Regime.Volatility.NORMAL);
-        assertThat(volatilityAt(75)).isEqualTo(Regime.Volatility.NORMAL);
-        assertThat(volatilityAt(90)).isEqualTo(Regime.Volatility.HIGH);
+    @DisplayName("Oynaklık eşikleri: önceki durum yokken giriş eşikleri geçerli")
+    void volatilityEntryThresholds() {
+        assertThat(volatilityAt(10, null)).isEqualTo(Regime.Volatility.LOW);
+        assertThat(volatilityAt(25, null)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(50, null)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(75, null)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(90, null)).isEqualTo(Regime.Volatility.HIGH);
+    }
+
+    @Test
+    @DisplayName("Histerezis: bir rejime girmek, o rejimde kalmaktan zor")
+    void volatilityHysteresis() {
+        Regime high = new Regime(Regime.Trend.RANGE, Regime.Volatility.HIGH, 0, "");
+        Regime low = new Regime(Regime.Trend.RANGE, Regime.Volatility.LOW, 0, "");
+
+        // 70. persentil: HIGH'a girmeye yetmez (80 gerekir) ama HIGH'da kalmaya yeter (60).
+        assertThat(volatilityAt(70, null)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(70, high)).isEqualTo(Regime.Volatility.HIGH);
+
+        // 30. persentil: LOW'a girmeye yetmez (20 gerekir) ama LOW'da kalmaya yeter (40).
+        assertThat(volatilityAt(30, null)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(30, low)).isEqualTo(Regime.Volatility.LOW);
+
+        // Bandın dışına çıkınca gerçekten terk ediliyor — histerezis yapışkanlık değil.
+        assertThat(volatilityAt(55, high)).isEqualTo(Regime.Volatility.NORMAL);
+        assertThat(volatilityAt(45, low)).isEqualTo(Regime.Volatility.NORMAL);
+    }
+
+    @Test
+    @DisplayName("Trend histerezisi yalnızca aynı yönde geçerli")
+    void trendHysteresisIsDirectional() {
+        Regime up = new Regime(Regime.Trend.UPTREND, Regime.Volatility.NORMAL, 1, "");
+        Regime down = new Regime(Regime.Trend.DOWNTREND, Regime.Volatility.NORMAL, 1, "");
+
+        // Ayrışma %0.10: girmeye yetmez (%0.15), kalmaya yeter (%0.08).
+        var weak = indicators(Map.of("ema20", 100.20, "ema50", 100.10, "ema200", 100.0));
+        var st = stats(Map.of("volPercentileSlow", 50.0));
+
+        assertThat(classifier.classify(weak, st, null).trend()).isEqualTo(Regime.Trend.RANGE);
+        assertThat(classifier.classify(weak, st, up).trend()).isEqualTo(Regime.Trend.UPTREND);
+        // Düşüşten geliyorsak gevşek eşik uygulanmıyor: yön kontrolü olmasaydı histerezis
+        // amacının tersine çalışırdı.
+        assertThat(classifier.classify(weak, st, down).trend()).isEqualTo(Regime.Trend.RANGE);
     }
 
     @Test
@@ -165,13 +201,13 @@ class RuleRegimeClassifierTest {
         Instant asOf = TestBars.T0.plus(Duration.ofHours(bars.size() + 10));
         return classifier.classify(
                 new Ta4jIndicatorService(reader).compute(TestBars.BTC, Timeframe.H1, asOf),
-                new DefaultStatsService(reader).compute(TestBars.BTC, Timeframe.H1, asOf));
+                new DefaultStatsService(reader).compute(TestBars.BTC, Timeframe.H1, asOf), null);
     }
 
-    private Regime.Volatility volatilityAt(double percentile) {
+    private Regime.Volatility volatilityAt(double percentile, Regime previous) {
         return classifier.classify(
                 indicators(Map.of("ema20", 105.0, "ema50", 102.0, "ema200", 100.0)),
-                stats(Map.of("volPercentile", percentile))).volatility();
+                stats(Map.of("volPercentileSlow", percentile)), previous).volatility();
     }
 
     private static IndicatorSet indicators(Map<String, Double> raw) {

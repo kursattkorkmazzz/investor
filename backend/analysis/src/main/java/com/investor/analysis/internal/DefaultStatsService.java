@@ -43,8 +43,26 @@ class DefaultStatsService implements StatsService {
     /** Persentil ve z-skor için tarihsel pencere. */
     static final int HISTORY_BARS = 720;
 
-    /** Oynaklık ve hacim istatistiklerinin kısa penceresi. */
+    /** Oynaklık ve hacim istatistiklerinin kısa penceresi — hızlı olaylar için. */
     static final int SHORT_WINDOW = 24;
+
+    /**
+     * Rejim sınıflandırması için yavaş oynaklık penceresi (H1'de ~4 gün).
+     *
+     * <p>Ayrı bir pencere olmasının sebebi ölçümle bulundu. Rejim de kısa pencereye
+     * bağlıyken 1500 mumda 103 oynaklık rejimi değişimi çıkıyordu — her 15 mumda bir.
+     * Rejim değişimi pahalı bir LLM turu açtığı için bu doğrudan para demekti.
+     *
+     * <p>Asıl hata kavramsaldı: <b>rejim yavaş değişen bir karakterdir, tetikleyici ise
+     * hızlı bir olaydır.</b> İkisini aynı ölçüye bağlamak, kısa vadeli bir oynaklık
+     * sıçramasını "piyasanın karakteri değişti" diye okumak demek. Sıçramaların kendisi
+     * zaten PRICE_SHOCK ve VOLUME_ANOMALY tetikleyicileriyle yakalanıyor.
+     *
+     * <p>Pencere taramayla seçildi: 24 → %7.0 savrulma, 48 → %3.7, <b>96 → %2.5</b>,
+     * 168 → %1.7. 96'da dağılım hâlâ dengeli (LOW/NORMAL/HIGH birbirine yakın);
+     * 168'de NORMAL sınıfı erimeye başlıyor.
+     */
+    static final int SLOW_WINDOW = 96;
 
     /** Getiri pencereleri (mum sayısı) ve okunabilir adları. */
     private static final int[] RETURN_WINDOWS = {1, 24, 168};
@@ -92,23 +110,10 @@ class DefaultStatsService implements StatsService {
         double[] returns = Descriptives.logReturns(closes);
         double annualization = Math.sqrt(barsPerYear(timeframe));
 
-        if (returns.length >= SHORT_WINDOW) {
-            double[] recent = tail(returns, SHORT_WINDOW);
-            double vol = Descriptives.standardDeviation(recent) * annualization * 100;
-            values.put("realizedVol", new StatValue("realizedVol", scale(vol), recent.length,
-                    "Son %d %s mumunun log getirilerinin standart sapması, yıllıklandırılmış, %%"
-                            .formatted(SHORT_WINDOW, timeframe.code())));
-
-            // Oynaklığın kendi geçmişindeki yeri: "şu an olağandan mı oynak".
-            double[] volSeries = rollingVolatility(returns, SHORT_WINDOW, annualization);
-            if (volSeries.length >= MIN_VOL_SAMPLES) {
-                OptionalDouble rank = Descriptives.percentileRank(volSeries, vol);
-                rank.ifPresent(r -> values.put("volPercentile",
-                        new StatValue("volPercentile", scale(r), volSeries.length,
-                                "Şu anki oynaklığın son %d gözlemdeki persentil sırası (0–100)"
-                                        .formatted(volSeries.length))));
-            }
-        }
+        // Hızlı oynaklık: son olayları anlatır, ajanların istemine girer.
+        putVolatility(values, returns, SHORT_WINDOW, annualization, timeframe, "", "kısa vadeli");
+        // Yavaş oynaklık: rejim sınıflandırmasının girdisi (bkz. SLOW_WINDOW).
+        putVolatility(values, returns, SLOW_WINDOW, annualization, timeframe, "Slow", "rejim");
 
         if (volumes.length > SHORT_WINDOW) {
             // Şimdiki hacim karşılaştırma penceresinin dışında tutuluyor: kendisini de
@@ -130,6 +135,29 @@ class DefaultStatsService implements StatsService {
                                 .formatted(closes.length, timeframe.code()))));
 
         return new PriceStats(instrument, timeframe, asOf, bars.size(), values);
+    }
+
+    /** Bir pencere için gerçekleşen oynaklık ve persentilini kümeye yazar. */
+    private static void putVolatility(Map<String, StatValue> values, double[] returns, int window,
+                                      double annualization, Timeframe timeframe, String suffix,
+                                      String purpose) {
+        if (returns.length < window) {
+            return;
+        }
+        double vol = Descriptives.standardDeviation(tail(returns, window)) * annualization * 100;
+        values.put("realizedVol" + suffix, new StatValue("realizedVol" + suffix, scale(vol), window,
+                "Son %d %s mumunun log getirilerinin standart sapması, yıllıklandırılmış, %% (%s)"
+                        .formatted(window, timeframe.code(), purpose)));
+
+        double[] volSeries = rollingVolatility(returns, window, annualization);
+        if (volSeries.length < MIN_VOL_SAMPLES) {
+            return;
+        }
+        OptionalDouble rank = Descriptives.percentileRank(volSeries, vol);
+        rank.ifPresent(r -> values.put("volPercentile" + suffix,
+                new StatValue("volPercentile" + suffix, scale(r), volSeries.length,
+                        "Oynaklığın son %d gözlemdeki persentil sırası, 0–100 (%s)"
+                                .formatted(volSeries.length, purpose))));
     }
 
     /**

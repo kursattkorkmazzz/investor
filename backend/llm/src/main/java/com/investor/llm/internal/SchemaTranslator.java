@@ -83,6 +83,10 @@ final class SchemaTranslator {
                     .items(JsonStringSchema.builder().build())
                     .description(description)
                     .build();
+            case OBJECT_ARRAY -> JsonArraySchema.builder()
+                    .items(toObjectSchema(field.nested()))
+                    .description(description)
+                    .build();
         };
     }
 

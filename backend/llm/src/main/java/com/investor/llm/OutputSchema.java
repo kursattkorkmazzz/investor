@@ -17,8 +17,10 @@ import java.util.Set;
  * olarak. İkincisi katı şema desteği olmayan uç noktalar için yedek yol; demo uç noktasının
  * ne desteklediğini bilmiyoruz, o yüzden ikisi de lazım.
  *
- * <p>Kasten düz: tek seviye nesne, alanlar ilkel ya da metin dizisi. İç içe şemaya ihtiyaç
- * duyduğumuz anda eklenecek — şimdi eklemek kullanılmayan kod olurdu.
+ * <p>Bir seviye iç içe geçmeye izin var: {@link Kind#OBJECT_ARRAY} ile nesne listesi
+ * tanımlanabiliyor. Analist ajanlar kanıt <em>listesi</em> üretiyor ve bu olmadan çıktıyı
+ * paralel dizilere yaymak gerekirdi — hem çirkin hem de modelin karıştırması kolay.
+ * Daha derin iç içe geçme hâlâ yok; ihtiyaç doğduğunda eklenecek.
  */
 public record OutputSchema(String name, Map<String, Field> fields, List<String> required) {
 
@@ -49,7 +51,9 @@ public record OutputSchema(String name, Map<String, Field> fields, List<String> 
         INTEGER,
         BOOLEAN,
         ENUM,
-        STRING_ARRAY
+        STRING_ARRAY,
+        /** Nesne listesi; öğe şeması {@link Field#nested()} içinde. */
+        OBJECT_ARRAY
     }
 
     /**
@@ -64,7 +68,8 @@ public record OutputSchema(String name, Map<String, Field> fields, List<String> 
             String description,
             List<String> enumValues,
             Double min,
-            Double max) {
+            Double max,
+            OutputSchema nested) {
 
         public Field {
             Objects.requireNonNull(kind, "alan türü zorunlu");
@@ -81,6 +86,17 @@ public record OutputSchema(String name, Map<String, Field> fields, List<String> 
             }
             if (min != null && max != null && min > max) {
                 throw new IllegalArgumentException("alt sınır üst sınırdan büyük olamaz");
+            }
+            if (kind == Kind.OBJECT_ARRAY && nested == null) {
+                throw new IllegalArgumentException("nesne listesi öğe şeması olmadan tanımlanamaz");
+            }
+            if (kind != Kind.OBJECT_ARRAY && nested != null) {
+                throw new IllegalArgumentException("yalnızca nesne listesi iç şema taşıyabilir");
+            }
+            // Bir seviye derinlik sınırı: iç şemanın kendi içinde listesi olamaz.
+            if (nested != null && nested.fields().values().stream()
+                    .anyMatch(f -> f.kind() == Kind.OBJECT_ARRAY)) {
+                throw new IllegalArgumentException("iç içe nesne listesi desteklenmiyor");
             }
         }
 
@@ -119,6 +135,7 @@ public record OutputSchema(String name, Map<String, Field> fields, List<String> 
             case BOOLEAN -> "<true|false>";
             case STRING_ARRAY -> "[<metin>, ...]";
             case ENUM -> String.join("|", f.enumValues());
+            case OBJECT_ARRAY -> "[ " + f.nested().describe().replace("\n", "\n  ") + ", ... ]";
             case NUMBER, INTEGER -> {
                 String base = f.kind() == Kind.INTEGER ? "<tam sayı" : "<ondalık";
                 if (f.min() != null || f.max() != null) {
@@ -140,27 +157,32 @@ public record OutputSchema(String name, Map<String, Field> fields, List<String> 
         }
 
         public Builder string(String key, String description) {
-            return put(key, new Field(Kind.STRING, description, null, null, null));
+            return put(key, new Field(Kind.STRING, description, null, null, null, null));
         }
 
         public Builder number(String key, double min, double max, String description) {
-            return put(key, new Field(Kind.NUMBER, description, null, min, max));
+            return put(key, new Field(Kind.NUMBER, description, null, min, max, null));
         }
 
         public Builder integer(String key, String description) {
-            return put(key, new Field(Kind.INTEGER, description, null, null, null));
+            return put(key, new Field(Kind.INTEGER, description, null, null, null, null));
         }
 
         public Builder bool(String key, String description) {
-            return put(key, new Field(Kind.BOOLEAN, description, null, null, null));
+            return put(key, new Field(Kind.BOOLEAN, description, null, null, null, null));
         }
 
         public Builder enumeration(String key, List<String> values, String description) {
-            return put(key, new Field(Kind.ENUM, description, values, null, null));
+            return put(key, new Field(Kind.ENUM, description, values, null, null, null));
         }
 
         public Builder stringArray(String key, String description) {
-            return put(key, new Field(Kind.STRING_ARRAY, description, null, null, null));
+            return put(key, new Field(Kind.STRING_ARRAY, description, null, null, null, null));
+        }
+
+        /** Nesne listesi: her öğe {@code itemSchema}'ya uyar. */
+        public Builder objectArray(String key, OutputSchema itemSchema, String description) {
+            return put(key, new Field(Kind.OBJECT_ARRAY, description, null, null, null, itemSchema));
         }
 
         /** Son eklenen alanı zorunlu işaretler. */

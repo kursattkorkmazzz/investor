@@ -67,6 +67,24 @@ public record LlmResult(
     }
 
     /**
+     * Nesne listesi alanı.
+     *
+     * <p>Her öğe, iç şemaya göre doğrulanmış anahtar/değer haritası. Şemaya uymayan
+     * öğeler doğrulama sırasında atılmış olur.
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> objectList(String key) {
+        Object v = values.get(key);
+        if (v == null) {
+            return List.of();
+        }
+        if (v instanceof List<?> list) {
+            return (List<Map<String, Object>>) list;
+        }
+        throw new IllegalStateException("alan nesne listesi değil: " + key + " = " + v);
+    }
+
+    /**
      * Enum alanını Java enum'una çevirir. Model kapalı kümenin dışına çıkarsa
      * {@code fallback} döner — şema zorlamasına rağmen bunun olabildiğini varsayıyoruz,
      * çünkü katı şema desteklemeyen uç noktalarda çıktı yalnızca istemle yönlendiriliyor.

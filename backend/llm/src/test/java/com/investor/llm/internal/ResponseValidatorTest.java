@@ -30,6 +30,18 @@ class ResponseValidatorTest {
             .string("summary", "özet")
             .build();
 
+    private static final OutputSchema EVIDENCE_ITEM = OutputSchema.named("kanit")
+            .string("claim", "iddia").requiredField()
+            .number("weight", 0, 1, "ağırlık").requiredField()
+            .enumeration("side", List.of("BUY", "SELL", "NEUTRAL"), "yön")
+            .build();
+
+    private static final OutputSchema WITH_EVIDENCE = OutputSchema.named("ajan")
+            .number("sentiment", -1, 1, "yön").requiredField()
+            .number("materiality", 0, 1, "önem").requiredField()
+            .objectArray("evidence", EVIDENCE_ITEM, "kanıtlar")
+            .build();
+
     private final ResponseValidator validator = new ResponseValidator(JsonMapper.builder().build());
 
     @Test
@@ -129,6 +141,74 @@ class ResponseValidatorTest {
         assertThatThrownBy(() -> validator.validate("Üzgünüm, bu isteği yerine getiremem.", SCHEMA))
                 .isInstanceOf(LlmException.class)
                 .satisfies(e -> assertThat(((LlmException) e).retryable()).isTrue());
+    }
+
+    @Test
+    @DisplayName("Nesne listesi iç şemaya göre doğrulanıyor")
+    void validatesObjectArray() {
+        var values = validator.validate("""
+                {"sentiment": 0.1, "materiality": 0.2, "evidence": [
+                  {"claim": "RSI düşük", "weight": 0.6, "side": "BUY"},
+                  {"claim": "Hacim yüksek", "weight": 0.4, "side": "SELL"}
+                ]}
+                """, WITH_EVIDENCE);
+
+        @SuppressWarnings("unchecked")
+        var evidence = (java.util.List<java.util.Map<String, Object>>) values.get("evidence");
+        assertThat(evidence).hasSize(2);
+        assertThat(evidence.get(0)).containsEntry("claim", "RSI düşük").containsEntry("weight", 0.6);
+        assertThat(evidence.get(1)).containsEntry("side", "SELL");
+    }
+
+    @Test
+    @DisplayName("Liste öğesindeki sınır ihlali de kırpılıyor")
+    void clampsInsideObjectArray() {
+        var values = validator.validate("""
+                {"sentiment": 0, "materiality": 0, "evidence": [
+                  {"claim": "abartılı", "weight": 47.0, "side": "BUY"}
+                ]}
+                """, WITH_EVIDENCE);
+
+        @SuppressWarnings("unchecked")
+        var evidence = (java.util.List<java.util.Map<String, Object>>) values.get("evidence");
+        assertThat(evidence.get(0)).containsEntry("weight", 1.0);
+        assertThat(validator.clamped()).contains("evidence.weight");
+    }
+
+    @Test
+    @DisplayName("Bozuk öğe atılıyor, sağlam öğeler korunuyor")
+    void dropsOnlyBrokenItems() {
+        // Bir ajanın beş kanıtından biri bozuksa diğer dördünü çöpe atmak, elde olan
+        // bilgiyi kaybetmek olurdu.
+        var values = validator.validate("""
+                {"sentiment": 0, "materiality": 0, "evidence": [
+                  {"claim": "sağlam", "weight": 0.5, "side": "BUY"},
+                  {"weight": 0.5, "side": "BUY"},
+                  "bu bir nesne bile değil",
+                  {"claim": "bu da sağlam", "weight": 0.3, "side": "SELL"}
+                ]}
+                """, WITH_EVIDENCE);
+
+        @SuppressWarnings("unchecked")
+        var evidence = (java.util.List<java.util.Map<String, Object>>) values.get("evidence");
+        assertThat(evidence).hasSize(2);
+        // Atma sessiz değil.
+        assertThat(validator.droppedItems()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("Liste öğesindeki fazladan alanlar da atılıyor")
+    void dropsUnknownFieldsInsideItems() {
+        var values = validator.validate("""
+                {"sentiment": 0, "materiality": 0, "evidence": [
+                  {"claim": "x", "weight": 0.5, "side": "BUY",
+                   "action": "MARKET_BUY", "quantity": 999}
+                ]}
+                """, WITH_EVIDENCE);
+
+        @SuppressWarnings("unchecked")
+        var evidence = (java.util.List<java.util.Map<String, Object>>) values.get("evidence");
+        assertThat(evidence.get(0)).containsOnlyKeys("claim", "weight", "side");
     }
 
     @Test

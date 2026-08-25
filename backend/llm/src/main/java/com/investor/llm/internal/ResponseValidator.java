@@ -34,6 +34,7 @@ final class ResponseValidator {
 
     private final JsonMapper mapper;
     private final List<String> clamped = new ArrayList<>();
+    private final List<String> droppedItems = new ArrayList<>();
 
     ResponseValidator(JsonMapper mapper) {
         this.mapper = mapper;
@@ -41,6 +42,11 @@ final class ResponseValidator {
 
     List<String> clamped() {
         return List.copyOf(clamped);
+    }
+
+    /** Şemaya uymadığı için atılan liste öğeleri — kırpma gibi ölçüme giriyor. */
+    List<String> droppedItems() {
+        return List.copyOf(droppedItems);
     }
 
     Map<String, Object> validate(String raw, OutputSchema schema) {
@@ -88,6 +94,7 @@ final class ResponseValidator {
             case NUMBER -> toNumber(key, node, field);
             case ENUM -> toEnum(node, field);
             case STRING_ARRAY -> toStringList(node);
+            case OBJECT_ARRAY -> toObjectList(key, node, field);
         };
     }
 
@@ -153,6 +160,45 @@ final class ResponseValidator {
                 }
             }
         });
+        return List.copyOf(out);
+    }
+
+    /**
+     * Nesne listesi: her öğe iç şemaya göre ayrı ayrı doğrulanıyor.
+     *
+     * <p>Şemaya uymayan öğe <em>atılıyor</em>, tüm liste reddedilmiyor. Sebep: bir ajanın
+     * beş kanıtından biri bozuksa diğer dördünü çöpe atmak, elde olan bilgiyi kaybetmek
+     * olur. Atılan öğe {@link #droppedItems} sayacına giriyor — sessiz değil.
+     */
+    private List<Map<String, Object>> toObjectList(String key, JsonNode node,
+                                                   OutputSchema.Field field) {
+        if (!node.isArray()) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        OutputSchema item = field.nested();
+        for (JsonNode child : node) {
+            if (!child.isObject()) {
+                droppedItems.add(key);
+                continue;
+            }
+            Map<String, Object> values = new LinkedHashMap<>();
+            for (Map.Entry<String, OutputSchema.Field> entry : item.fields().entrySet()) {
+                JsonNode value = child.get(entry.getKey());
+                if (value == null || value.isNull()) {
+                    continue;
+                }
+                Object converted = convert(key + "." + entry.getKey(), value, entry.getValue());
+                if (converted != null) {
+                    values.put(entry.getKey(), converted);
+                }
+            }
+            if (item.required().stream().allMatch(values::containsKey)) {
+                out.add(Map.copyOf(values));
+            } else {
+                droppedItems.add(key);
+            }
+        }
         return List.copyOf(out);
     }
 

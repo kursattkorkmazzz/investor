@@ -101,13 +101,14 @@ class LangChain4jLlmClient implements LlmClient {
             throw e;
         }
 
-        List<String> clamped = validator.clamped();
-        if (!clamped.isEmpty()) {
-            // Sessiz kalmıyoruz: sınır ihlali ya model bozulmuş ya biri istemi zorluyor demek.
-            log.warn("LLM cevabında sınır dışı alanlar kırpıldı: purpose={} alanlar={}",
-                    call.purpose(), clamped);
+        List<String> anomalies = new java.util.ArrayList<>(validator.clamped());
+        validator.droppedItems().forEach(item -> anomalies.add("dropped:" + item));
+        if (!anomalies.isEmpty()) {
+            // Sessiz kalmıyoruz: şema ihlali ya model bozulmuş ya biri istemi zorluyor demek.
+            log.warn("LLM cevabında şema ihlali düzeltildi: purpose={} alanlar={}",
+                    call.purpose(), anomalies);
         }
-        callLog.record(callId, call, modelId, usage, latency, raw, clamped, null);
+        callLog.record(callId, call, modelId, usage, latency, raw, anomalies, null);
 
         return new LlmResult(callId, response.modelName() == null ? modelId : response.modelName(),
                 values, raw, usage, latency, truncated);

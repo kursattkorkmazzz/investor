@@ -108,7 +108,10 @@ class KnowledgeOntology {
     @Transactional
     ObjectRef writeArticle(String externalId, RawNewsItem item, NewsAnalysis analysis,
                            int sourceCount, java.util.UUID sourceId) {
-        CommitContext ctx = CommitContext.ingestor("news-ingest", "haber kaydı", sourceId);
+        // Aktör kimliğine çıkarıcı da giriyor: hangi satırın LLM'den, hangisinin kural
+        // tabanlı yedekten geldiği sonradan sorulabilsin. Kalibrasyon bu ayrımı gerektirecek.
+        CommitContext ctx = CommitContext.ingestor("news-ingest/" + analysis.extractorId(),
+                "haber kaydı", sourceId);
         CommitContext bound = store.openCommit(ctx);
         ObjectRef article = store.findOrCreate(NEWS_ARTICLE, externalId, bound);
 

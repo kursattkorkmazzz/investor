@@ -1,12 +1,12 @@
 spring:
   flyway:
+    enabled: true
+    # LLM modülü kendi başına test ediliyor; ontoloji şemasına ihtiyacı yok.
     locations:
-      - classpath:db/migration/ontology
-      - classpath:db/migration/marketdata
-      - classpath:db/migration/knowledge
       - classpath:db/migration/llm
     clean-disabled: false
 
 logging:
   level:
     org.flywaydb: WARN
+    com.investor.llm: WARN

@@ -8,6 +8,7 @@ springdoc       = "3.1.0"
 assertj         = "3.27.6"
 awaitility      = "4.3.0"
 wiremock        = "3.13.2"
+langchain4j     = "1.19.0"
 
 [libraries]
 spring-boot-bom       = { module = "org.springframework.boot:spring-boot-dependencies",   version.ref = "springBoot" }
@@ -17,6 +18,9 @@ postgresql            = { module = "org.postgresql:postgresql",                 
 flyway-core           = { module = "org.flywaydb:flyway-core",                             version.ref = "flyway" }
 flyway-postgresql     = { module = "org.flywaydb:flyway-database-postgresql",              version.ref = "flyway" }
 springdoc-webmvc      = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui",    version.ref = "springdoc" }
+
+langchain4j           = { module = "dev.langchain4j:langchain4j",                           version.ref = "langchain4j" }
+langchain4j-open-ai   = { module = "dev.langchain4j:langchain4j-open-ai",                   version.ref = "langchain4j" }
 
 testcontainers-bom    = { module = "org.testcontainers:testcontainers-bom",                version.ref = "testcontainers" }
 assertj-core          = { module = "org.assertj:assertj-core",                             version.ref = "assertj" }

@@ -13,7 +13,7 @@
 | Veri erişimi | **Spring `JdbcClient`** | Elle SQL. jOOQ kod üretimi build'i canlı veritabanına ya da Postgres'e özgü DDL ayrıştırmasına bağımlı kılıyordu ([ADR-0006](adr/0006-jooq-yerine-jdbcclient.md)). Tip güvenliğini gerçek PostgreSQL'e karşı koşan testler telafi ediyor. |
 | Migration | **Flyway** | Modül başına migration klasörü |
 | Teknik analiz | **ta4j** | Olgun Java indikatör kütüphanesi; hesap deterministik kalır |
-| LLM | **LangChain4j** (`dev.langchain4j` 1.19.0) + Anthropic sağlayıcısı | Proje sahibinin tercihi ([ADR-0008](adr/0008-langchain4j.md)). Kendi `LlmClient` / `NewsExtractor` portlarımızın arkasında durur; sağlayıcı ya da kütüphane değişimi tek sınıfla sınırlı kalır. |
+| LLM | **LangChain4j 1.19.0** (`langchain4j` + `langchain4j-open-ai`) | Proje sahibinin tercihi ([ADR-0008](adr/0008-langchain4j.md)). Kendi `LlmClient` / `NewsExtractor` portlarımızın arkasında durur; kütüphane tiplerine dokunan yalnızca iki sınıf var ve bu sınır Gradle'da `implementation` bağımlılığıyla build zamanında zorlanıyor. Varsayılan uç: LangChain4j'in anahtarsız demo ucu. |
 | İstatistik / ML | **Tribuo** | Kalibrasyon için lojistik regresyon; hafif, Java-yerel |
 | Dayanıklılık | **Resilience4j** | Circuit breaker, retry, rate limiter |
 | Zamanlama kilidi | **ShedLock** | Çoklu instance'ta işin tek yerde koşması |
@@ -26,9 +26,17 @@ LangChain4j bir soyutlama katmanı ve soyutlamalar eskir. Kod tabanının tamam�
 tiplerine bağlanırsa, sağlayıcı ya da kütüphane değişimi her dosyaya dokunur.
 
 Bu yüzden LLM erişimi her zaman kendi portlarımızın arkasında: `NewsExtractor` (Faz 2'de
-kural tabanlı varsayılanıyla yazıldı) ve `LlmClient` (Faz 3). LangChain4j gerçeklemesi
-devreye girdiğinde çağıran hiçbir kod değişmez, ve gerekirse doğrudan SDK gerçeklemesiyle
-değiştirilebilir. Takas ve gerekçe: [ADR-0008](adr/0008-langchain4j.md).
+kural tabanlı varsayılanıyla yazıldı) ve `LlmClient` (Faz 3'te gerçeklendi). LangChain4j
+gerçeklemesi devreye girdiğinde çağıran hiçbir kod değişmedi, ve gerekirse doğrudan SDK
+gerçeklemesiyle değiştirilebilir.
+
+Sınır sözde kalmasın diye build zamanında da zorlanıyor: `backend/llm` modülünde
+LangChain4j `implementation` bağımlılığı, `api` değil. Başka bir modül LangChain4j tipine
+erişmeye kalkarsa derleme kırılır — kod gözden geçirmesine güvenmek yerine derleyiciye
+yaptırıyoruz.
+
+Takas ve gerçekleme sırasında öğrenilenler: [ADR-0008](adr/0008-langchain4j.md);
+katmanın ayrıntısı: [11 — LLM katmanı](11-llm-katmani.md).
 
 ### Kod üretimi neden yok
 

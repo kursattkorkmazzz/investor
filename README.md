@@ -7,11 +7,13 @@ tek bir **dinamik ontoloji** üzerinde birleştirir; her al-sat kararını gerek
 güven skoru ve sonucuyla birlikte kayıt altına alan bir **decision engine** üzerinden
 yürütür; kapanan her karardan öğrenerek kendini kalibre eder.
 
-> **Durum:** Faz 0–2 tamam (canlı kaynak doğrulaması hariç).
+> **Durum:** Faz 0–2 tamam, Faz 3 başladı (canlı kaynak doğrulaması hariç).
 > Çalışanlar: bitemporal ontoloji çekirdeği ve Ontology Explorer; partition'lı OHLCV
 > deposu, look-ahead güvenli okuma API'si, rollup ve boşluk doldurma; haber toplama ve
-> üç katmanlı tekilleştirme; makro serilerin revizyonlarıyla birlikte ontolojiye yazımı.
-> Sıradaki faz analiz ajanları ve decision engine.
+> üç katmanlı tekilleştirme; makro serilerin revizyonlarıyla birlikte ontolojiye yazımı;
+> LangChain4j üzerinden şemaya zorlanmış LLM erişimi, bütçe tavanı, çağrı denetim kaydı
+> ve LLM tabanlı haber çıkarımı.
+> Sıradaki adımlar teknik gösterge servisi, analiz ajanları ve decision engine.
 > Bkz. [yol haritası](docs/10-yol-haritasi.md).
 
 ---
@@ -75,6 +77,7 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | 08 | [Frontend](docs/08-frontend.md) | React ekranları, Decision Inspector, Ontology Explorer |
 | 09 | [Tech stack](docs/09-tech-stack.md) | Tam bağımlılık listesi ve her birinin gerekçesi |
 | 10 | [Yol haritası](docs/10-yol-haritasi.md) | Fazlar, çıktılar, kapılar, tahmini süreler |
+| 11 | [LLM katmanı](docs/11-llm-katmani.md) | `LlmClient` portu, enjeksiyon savunması, bütçe tavanı, çağrı kaydı |
 
 ### Modüller
 
@@ -84,6 +87,7 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | `backend/ontology-core` | ✅ | Bitemporal ontoloji: şema, store, sorgu derleyicisi |
 | `backend/market-data` | ✅ | OHLCV deposu, rollup, boşluk doldurma, Binance adapter |
 | `backend/knowledge` | ✅ | Haber toplama ve tekilleştirme, makro seriler ve revizyonlar |
+| `backend/llm` | ✅ | LLM erişimi: şema zorlaması, enjeksiyon savunması, bütçe, çağrı kaydı |
 | `backend/api` | ✅ | REST katmanı (ontoloji + piyasa verisi) |
 | `backend/app` | ✅ | Spring Boot giriş noktası, modül sınırı doğrulaması |
 | `frontend` | 🟡 | Ontology Explorer; grafik ve karar ekranları bekliyor |
@@ -94,7 +98,7 @@ Mimari kararların gerekçeleri: [docs/adr/](docs/adr/)
 
 ## Tech stack (özet)
 
-- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · (ileride ta4j, LangChain4j)
+- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · LangChain4j 1.19 · (ileride ta4j)
 - **Frontend:** React 19 · TypeScript · Vite · TanStack Query · Tailwind 4 · (ileride lightweight-charts)
 - **Veri:** PostgreSQL 16 (AWS RDS) · pg_partman · Redis (Valkey) · (ileride pgvector)
 - **Borsa:** Binance Spot (REST + WebSocket), `ExchangePort` arkasında soyutlanmış

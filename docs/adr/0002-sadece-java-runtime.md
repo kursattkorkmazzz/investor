@@ -15,7 +15,7 @@ Her şey Java'da. Python sidecar yok.
 - Teknik analiz: **ta4j**
 - İstatistik ve kalibrasyon: **Tribuo** + SQL
 - Backtest: kendi motorumuz, canlı sistemin kod yolunu kullanarak
-- LLM: **Anthropic Java SDK**, kendi `LlmClient` port'umuzun arkasında
+- LLM: **LangChain4j**, kendi `LlmClient` port'umuzun arkasında (bkz. [ADR-0008](0008-langchain4j.md); ilk yazımda Anthropic Java SDK öngörülüyordu)
 
 ## Sonuçlar
 

@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":backend:ontology-core"))
     implementation(project(":backend:market-data"))
     implementation(project(":backend:knowledge"))
+    implementation(project(":backend:llm"))
     implementation(project(":backend:api"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -32,6 +33,8 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation(testFixtures(project(":backend:ontology-core")))
     testImplementation("org.springframework.boot:spring-boot-flyway")
+    testImplementation(project(":backend:llm"))
+    testImplementation(project(":backend:knowledge"))
     testImplementation(libs.assertj.core)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

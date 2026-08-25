@@ -2,19 +2,21 @@ dependencies {
     implementation(platform(libs.spring.boot.bom))
     implementation(platform(libs.spring.modulith.bom))
 
-    api(project(":backend:ontology-core"))
-    implementation(project(":backend:llm"))
     api("org.springframework.modulith:spring-modulith-api")
 
+    // LangChain4j yalnızca 'implementation': porta sızmaması build zamanında da zorlansın
+    // (ADR-0008). Bir başka modül LangChain4j tipine erişmek isterse derleme kırılır.
+    implementation(libs.langchain4j)
+    implementation(libs.langchain4j.open.ai)
+
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
-    implementation("org.springframework:spring-web")
     implementation("tools.jackson.core:jackson-databind")
+    implementation("org.springframework.boot:spring-boot-autoconfigure")
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(testFixtures(project(":backend:ontology-core")))
-    testImplementation(project(":backend:llm"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-flyway")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

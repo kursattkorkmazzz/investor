@@ -69,7 +69,7 @@ class HeuristicNewsExtractor implements NewsExtractor {
 
         return new NewsAnalysis(sentiment, materiality, eventType,
                 entities(normalized), item.summary(), speculation,
-                NewsAnalysis.TimeHorizon.DAYS);
+                NewsAnalysis.TimeHorizon.DAYS, extractorId());
     }
 
     private static EventType classify(Set<String> tokens) {

@@ -85,11 +85,21 @@ gerçek besleme verisindeki isabeti. İkisi de canlı bağlantı gerektiriyor; b
 Binance, FRED ve haber kaynaklarına erişim ağ politikasıyla engelli. Dedup eşiği küçük ve
 sentetik bir örneklemde kalibre edildi, gerçek veriyle yeniden ölçülmeli.
 
-## Faz 3 — Analiz ve kanıt üretimi · ~3 hafta
+## Faz 3 — Analiz ve kanıt üretimi · ~3 hafta · 🟡 sürüyor
 
 ta4j indikatör servisi, istatistik servisi, rejim sınıflandırıcı. `LlmClient` port'u,
 prompt yönetimi ve versiyonlama, prompt caching. Beş analist ajan, yapılandırılmış
 çıktı sözleşmeleri, `abstain` davranışı. Deterministik tetikleyici kapısı.
+
+**Tamamlanan:** `backend/llm` modülü — LangChain4j 1.19 üzerinden `LlmClient` portu,
+sağlayıcıdan bağımsız `OutputSchema`, üç katmanlı istem enjeksiyonu savunması, aylık
+bütçe tavanı ve salt-ekleme çağrı kaydı (`llm_call`). İlk tüketici: `LlmNewsExtractor`,
+kural tabanlı çıkarıcının yerini alıyor ve erişilemezlikte ona dürüstçe düşüyor.
+Varsayılan yapılandırma LangChain4j'in anahtarsız demo ucunu gösteriyor.
+Bkz. [11 — LLM katmanı](11-llm-katmani.md).
+
+**Kalan:** ta4j indikatör servisi, istatistik servisi, rejim sınıflandırıcı,
+deterministik tetikleyici kapısı, beş analist ajan.
 
 **Kapı:** Geçmiş bir gün için tam bir analiz turu koşuyor; ajanlar geçerli `Evidence`
 üretiyor; tetikleyici kapısı tur sayısını hedeflenen aralığa indiriyor; LLM maliyeti

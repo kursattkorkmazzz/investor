@@ -11,6 +11,7 @@ include(
     "backend:ontology-core",
     "backend:market-data",
     "backend:knowledge",
+    "backend:llm",
     "backend:api",
     "backend:app",
 )

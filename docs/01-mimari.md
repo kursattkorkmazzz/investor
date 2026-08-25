@@ -12,7 +12,7 @@ flowchart TB
         BIN["Binance<br/>REST + WebSocket"]
         NEWS["Haber kaynakları<br/>RSS / API"]
         MACRO["Makro veri<br/>FRED, CoinGecko, on-chain"]
-        LLM["LLM sağlayıcı<br/>Claude API"]
+        LLMP["LLM sağlayıcı<br/>OpenAI uyumlu uç"]
     end
 
     subgraph ING["Ingestion"]
@@ -22,6 +22,7 @@ flowchart TB
 
     subgraph CORE["Çekirdek"]
         ONT[("ontology-core<br/>bitemporal ontoloji")]
+        LLMM["llm<br/>şema + bütçe + denetim"]
     end
 
     subgraph BRAIN["Karar üretimi"]
@@ -45,7 +46,9 @@ flowchart TB
     MD --> ONT
     KN --> ONT
     ONT --> AN
-    LLM <--> AN
+    LLMM <--> AN
+    LLMM <--> KN
+    LLMP <--> LLMM
     AN -->|evidence| DE
     DE -->|intent| RK
     RK -->|onay / veto| EX
@@ -78,8 +81,9 @@ Dikkat edilecek iki ok:
 | `shared` | Ortak tipler, para/miktar değer nesneleri, saat soyutlaması (`Clock`) | — |
 | `ontology-core` | Meta model, instance store, bitemporal yazma/okuma, commit, projeksiyon | `shared` |
 | `market-data` | Binance OHLCV/ticker ingest, partition ve rollup yönetimi, canlı fiyat buffer | `ontology-core` |
-| `knowledge` | Haber, makro ve on-chain ingest; deduplication; varlık eşleştirme (entity linking) | `ontology-core` |
-| `analysis` | ta4j indikatörleri, LLM analiz ajanları, kanıt (evidence) üretimi | `ontology-core` |
+| `knowledge` | Haber, makro ve on-chain ingest; deduplication; varlık eşleştirme (entity linking) | `ontology-core`, `llm` |
+| `llm` | Şemaya zorlanmış LLM erişimi, istem enjeksiyonu savunması, bütçe tavanı, çağrı denetim kaydı | — |
+| `analysis` | ta4j indikatörleri, LLM analiz ajanları, kanıt (evidence) üretimi | `ontology-core`, `llm` |
 | `decision-engine` | Karar yaşam döngüsü, kanıt birleştirme, kalibrasyon, sonuç değerlendirme | `ontology-core`, `analysis` |
 | `risk` | Deterministik limit kontrolleri, pozisyon boyutlandırma, kill-switch | `portfolio` |
 | `execution` | `ExchangePort` soyutlaması, Binance adapter, idempotency, reconciliation | `risk` |
@@ -216,6 +220,7 @@ investor/
 │   ├── ontology-core/
 │   ├── market-data/
 │   ├── knowledge/
+│   ├── llm/
 │   ├── analysis/
 │   ├── decision-engine/
 │   ├── risk/

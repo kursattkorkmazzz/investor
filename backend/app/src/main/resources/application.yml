@@ -14,11 +14,12 @@ spring:
     enabled: true
     # Her modül kendi migration klasörünü taşır; uygulama hepsini birleştirir.
     # Sürüm aralıkları modül başına bloklanır: ontoloji 1–99, market-data 100–199,
-    # knowledge 200–299, decision-engine 300–399. Tek global sıra, çakışma yok.
+    # knowledge 200–299, decision-engine 300–399, llm 400–499. Tek global sıra, çakışma yok.
     locations:
       - classpath:db/migration/ontology
       - classpath:db/migration/marketdata
       - classpath:db/migration/knowledge
+      - classpath:db/migration/llm
 
   # Sanal iş parçacıkları: analiz ajanları ileride paralel koşacak, engelleyen
   # G/Ç başına platform thread'i harcamanın anlamı yok.
@@ -51,6 +52,29 @@ investor:
       btc: "ASSET:BTC"
       ethereum: "ASSET:ETH"
       eth: "ASSET:ETH"
+
+  llm:
+    # Kapatıldığında sistem kural tabanlı çıkarıcılarla çalışmaya devam eder.
+    enabled: ${INVESTOR_LLM_ENABLED:true}
+    # Varsayılan: LangChain4j'in demo ucu — anahtar almadan denemek için. Hız sınırlı ve
+    # garantisiz; üretimde kendi anahtarınızla ezin.
+    base-url: ${INVESTOR_LLM_BASE_URL:http://langchain4j.dev/demo/openai/v1}
+    # ASLA buraya yazılmaz; ortam değişkeninden, üretimde Secrets Manager'dan gelir.
+    api-key: ${INVESTOR_LLM_API_KEY:demo}
+    model: ${INVESTOR_LLM_MODEL:gpt-4o-mini}
+    # Demo ucunun katı JSON şemasını desteklediğine dair güvence yok; kendi anahtarınıza
+    # geçtiğinizde açın — şema zorlaması istem enjeksiyonuna karşı asıl savunma katmanı.
+    strict-schema: ${INVESTOR_LLM_STRICT_SCHEMA:false}
+    timeout: PT60S
+    max-retries: 2
+    # Tavan aşılınca çağrılar reddedilir. Kaçak bir döngü gerçek para harcar; bu bir
+    # güvenlik sınırı, muhasebe kolaylığı değil.
+    monthly-budget-usd: ${INVESTOR_LLM_BUDGET_USD:50}
+    pricing:
+      # gpt-4o-mini, milyon token başına USD. Model değişirse burası da değişmeli.
+      input-per-million: 0.15
+      cached-input-per-million: 0.075
+      output-per-million: 0.60
 
 server:
   port: ${INVESTOR_PORT:8080}

@@ -47,14 +47,30 @@ olduğu ayrı ayrı test ediliyor.
 > Bu fazın uzun olması normal ve doğru. Ontoloji yanlış kurulursa üstüne inşa edilen
 > her şey yanlış kurulur; sonradan düzeltmek çok daha pahalı.
 
-## Faz 2 — Veri hatları · ~3 hafta
+## Faz 2 — Veri hatları · ~3 hafta · 🟡 piyasa verisi tamam, haber/makro bekliyor
 
-Binance OHLCV ingest (REST backfill + WebSocket), partition ve rollup job'ları,
-boşluk doldurma, Redis canlı buffer. Haber toplama, dedup, LLM çıkarımı, ontolojiye
-yazım. FRED ve CoinGecko makro serileri, ekonomik takvim.
+**Tamamlanan — piyasa verisi:**
+`market-data` modülü. Partition'lı `ohlcv`/`derivative_metric` şeması ve kendi aylık
+partition fonksiyonumuz; `MarketDataReader` (yalnızca kapanmış mum, zorunlu `asOf`
+sınırı); 1m'den 5m/15m/1h/4h/1d rollup; boşluk tespiti ve doldurma; ingest watermark'ı;
+Binance REST adapter'ı; zamanlanmış toplama; salt-okunur REST uç noktaları.
 
-**Kapı:** 30 günlük kesintisiz OHLCV, sıfır boşluk; rollup'lar bağımsız hesapla
-doğrulanmış; haber dedup'ı elle işaretlenmiş bir örneklemde %90+ isabetli.
+**Kapı:** ✅ Rollup tarafı geçildi. `RollupGateTest` üst dilimleri Java'da bağımsız
+hesaplanan değerlerle birebir karşılaştırıyor ve eksik taban mumu olan kovanın hiç
+yazılmadığını kanıtlıyor. `LookAheadSafetyTest` okuma API'sinin geleceği sızdırmadığını
+gösteriyor.
+
+**Kapının kalan yarısı:** "30 günlük kesintisiz OHLCV, sıfır boşluk" ancak canlı Binance
+bağlantısıyla ölçülebilir. Adapter WireMock'la kaydedilmiş cevap biçimine karşı test
+edildi; API'nin gerçekten bu biçimde cevap verdiği doğrulanmadı.
+
+**Bekleyen — bilgi hatları:**
+WebSocket akışı (şu an yalnızca REST). Haber toplama, dedup, çıkarım, ontolojiye yazım.
+FRED ve CoinGecko makro serileri, ekonomik takvim. Redis canlı buffer (Faz 5'e ertelendi —
+emir gönderme yolu için gerekli).
+
+**Kalan kapı:** 30 günlük kesintisiz OHLCV, sıfır boşluk; haber dedup'ı elle işaretlenmiş
+bir örneklemde %90+ isabetli.
 
 ## Faz 3 — Analiz ve kanıt üretimi · ~3 hafta
 

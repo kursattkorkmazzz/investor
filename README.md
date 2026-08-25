@@ -7,9 +7,11 @@ tek bir **dinamik ontoloji** üzerinde birleştirir; her al-sat kararını gerek
 güven skoru ve sonucuyla birlikte kayıt altına alan bir **decision engine** üzerinden
 yürütür; kapanan her karardan öğrenerek kendini kalibre eder.
 
-> **Durum:** Faz 0 ve Faz 1 tamam. Ontoloji çekirdeği çalışıyor: bitemporal şema, Java
-> API'si, dinamik sorgu derleyicisi, REST katmanı ve Ontology Explorer arayüzü. Sıradaki
-> faz veri hatları (Binance OHLCV, haber, makro) — bkz. [yol haritası](docs/10-yol-haritasi.md).
+> **Durum:** Faz 0–1 tamam, Faz 2'nin piyasa verisi yarısı tamam.
+> Çalışanlar: bitemporal ontoloji çekirdeği ve Ontology Explorer; partition'lı OHLCV
+> deposu, look-ahead güvenli okuma API'si, rollup ve boşluk doldurma, Binance REST
+> adapter'ı. Bekleyenler: haber ve makro hatları, analiz ajanları, decision engine.
+> Bkz. [yol haritası](docs/10-yol-haritasi.md).
 
 ---
 
@@ -72,6 +74,17 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | 08 | [Frontend](docs/08-frontend.md) | React ekranları, Decision Inspector, Ontology Explorer |
 | 09 | [Tech stack](docs/09-tech-stack.md) | Tam bağımlılık listesi ve her birinin gerekçesi |
 | 10 | [Yol haritası](docs/10-yol-haritasi.md) | Fazlar, çıktılar, kapılar, tahmini süreler |
+
+### Modüller
+
+| Modül | Durum | İçerik |
+|---|---|---|
+| `backend/shared` | ✅ | Saat soyutlaması, ortak altyapı |
+| `backend/ontology-core` | ✅ | Bitemporal ontoloji: şema, store, sorgu derleyicisi |
+| `backend/market-data` | ✅ | OHLCV deposu, rollup, boşluk doldurma, Binance adapter |
+| `backend/api` | ✅ | REST katmanı (ontoloji + piyasa verisi) |
+| `backend/app` | ✅ | Spring Boot giriş noktası, modül sınırı doğrulaması |
+| `frontend` | 🟡 | Ontology Explorer; grafik ve karar ekranları bekliyor |
 
 Mimari kararların gerekçeleri: [docs/adr/](docs/adr/)
 

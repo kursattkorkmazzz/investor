@@ -3,6 +3,7 @@ dependencies {
     implementation(platform(libs.spring.modulith.bom))
 
     api(project(":backend:ontology-core"))
+    api(project(":backend:market-data"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation(libs.springdoc.webmvc)

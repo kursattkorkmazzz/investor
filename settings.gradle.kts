@@ -9,6 +9,7 @@ dependencyResolutionManagement {
 include(
     "backend:shared",
     "backend:ontology-core",
+    "backend:market-data",
     "backend:api",
     "backend:app",
 )

@@ -2,6 +2,7 @@ package com.investor.ontology.support;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.List;
 
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -52,8 +53,7 @@ public final class PostgresResource {
         if (externalUrl != null && !externalUrl.isBlank()) {
             String user = orDefault(property("investor.test.db.username", "INVESTOR_TEST_DB_USERNAME"), "postgres");
             String pass = orDefault(property("investor.test.db.password", "INVESTOR_TEST_DB_PASSWORD"), "postgres");
-            resetSchema(externalUrl, user, pass);
-            return new PostgresResource(externalUrl, user, pass);
+            return new PostgresResource(prepareIsolatedSchema(externalUrl, user, pass), user, pass);
         }
 
         if (!DockerClientFactory.instance().isDockerAvailable()) {
@@ -75,23 +75,46 @@ public final class PostgresResource {
     }
 
     /**
-     * Harici veritabanının şemasını sıfırdan kurar.
+     * Harici veritabanında bu JVM'e özel, boş bir şema hazırlar.
      *
-     * <p>Testcontainers her koşuda yepyeni bir veritabanı verir; harici veritabanı yolunda
-     * aynı temiz sayfayı biz sağlıyoruz. Yayınlanmamış migration'lar geliştirme sırasında
-     * değiştiği için, kalıntı bir şema Flyway checksum doğrulamasında patlar.
+     * <p>Testcontainers her koşuda yepyeni bir veritabanı verir. Harici veritabanı yolunda
+     * aynı yalıtımı şema düzeyinde sağlıyoruz: Gradle modül test görevlerini paralel
+     * koşturur ve hepsi aynı veritabanına bağlanırsa birbirinin tablolarını siler —
+     * hata da test başarısızlığı olarak görünür, altındaki sebep görünmez.
+     *
+     * <p>Uzantılar {@code public} şemada bir kez kurulur ve {@code search_path}'e eklenir;
+     * her test şemasının kendi kopyasını kurmasına gerek yok.
      *
      * <p><b>Dikkat:</b> {@code investor.test.db.url} yalnızca tek kullanımlık bir test
-     * veritabanını göstermelidir — bu metot {@code public} şemayı olduğu gibi siler.
+     * veritabanını göstermelidir.
      */
-    private static void resetSchema(String url, String user, String pass) {
+    private static String prepareIsolatedSchema(String url, String user, String pass) {
+        String schema = "test_" + ProcessHandle.current().pid();
         try (Connection connection = DriverManager.getConnection(url, user, pass);
              java.sql.Statement statement = connection.createStatement()) {
-            statement.execute("DROP SCHEMA IF EXISTS public CASCADE");
-            statement.execute("CREATE SCHEMA public");
+
+            for (String extension : List.of("btree_gist", "pg_trgm")) {
+                statement.execute("CREATE EXTENSION IF NOT EXISTS " + extension + " SCHEMA public");
+            }
+            statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+            statement.execute("CREATE SCHEMA " + schema);
         } catch (Exception e) {
             throw new IllegalStateException("Harici test veritabanı hazırlanamadı: " + url, e);
         }
+
+        dropSchemaOnShutdown(url, user, pass, schema);
+        return url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema + ",public";
+    }
+
+    private static void dropSchemaOnShutdown(String url, String user, String pass, String schema) {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try (Connection connection = DriverManager.getConnection(url, user, pass);
+                 java.sql.Statement statement = connection.createStatement()) {
+                statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+            } catch (Exception ignored) {
+                // Temizlik en iyi çabadır; kalıntı şema bir sonraki koşuda zaten düşürülür.
+            }
+        }, "test-schema-cleanup"));
     }
 
     private static String property(String systemProperty, String envVar) {

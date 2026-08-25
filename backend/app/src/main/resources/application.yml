@@ -13,13 +13,28 @@ spring:
   flyway:
     enabled: true
     # Her modül kendi migration klasörünü taşır; uygulama hepsini birleştirir.
-    locations: classpath:db/migration/ontology
+    # Sürüm aralıkları modül başına bloklanır: ontoloji 1–99, market-data 100–199,
+    # knowledge 200–299, decision-engine 300–399. Tek global sıra, çakışma yok.
+    locations:
+      - classpath:db/migration/ontology
+      - classpath:db/migration/marketdata
 
   # Sanal iş parçacıkları: analiz ajanları ileride paralel koşacak, engelleyen
   # G/Ç başına platform thread'i harcamanın anlamı yok.
   threads:
     virtual:
       enabled: true
+
+investor:
+  market-data:
+    # Zamanlanmış toplama üretimde açılır; yerelde ve testte kapalı kalsın ki
+    # beklenmedik dış istek yapılmasın.
+    scheduling-enabled: ${INVESTOR_MARKET_DATA_ENABLED:false}
+    base-url: ${INVESTOR_BINANCE_URL:https://api.binance.com}
+    symbols: ${INVESTOR_SYMBOLS:BTCUSDT,ETHUSDT}
+    staleness-tolerance: PT5M
+    weight-budget: 800
+    partitions-ahead: 3
 
 server:
   port: ${INVESTOR_PORT:8080}

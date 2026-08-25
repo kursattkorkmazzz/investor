@@ -3,6 +3,7 @@ package com.investor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.modulith.Modulith;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Uygulama giriş noktası.
@@ -13,6 +14,7 @@ import org.springframework.modulith.Modulith;
  */
 @Modulith(systemName = "investor")
 @SpringBootApplication
+@EnableScheduling
 public class InvestorApplication {
 
     public static void main(String[] args) {

@@ -66,26 +66,41 @@ CREATE TABLE derivative_metric (
 
 ### Partition yönetimi (TimescaleDB olmadan)
 
-RDS'te `pg_partman` mevcut; aylık partition'lar ve saklama politikası onunla yönetilir:
+Plan başlangıçta `pg_partman` öngörüyordu. Gerçeklemede bundan vazgeçildi: eklentinin
+hedef RDS sürümünde bulunacağı garanti değil ve build'i doğrulanmamış bir eklentiye
+bağlamak istemedik. Aylık partition'ları kendimiz açıyoruz — toplam ~30 satır SQL:
 
 ```sql
-SELECT partman.create_parent(
-    p_parent_table    => 'public.ohlcv',
-    p_control         => 'open_time',
-    p_interval        => '1 month',
-    p_premake         => 3
-);
-
-UPDATE partman.part_config
-SET retention = '24 months', retention_keep_table = false
-WHERE parent_table = 'public.ohlcv';
+CREATE OR REPLACE FUNCTION ensure_month_partition(p_parent text, p_month date)
+RETURNS text LANGUAGE plpgsql AS $$
+DECLARE
+    v_start date := date_trunc('month', p_month)::date;
+    v_end   date := (date_trunc('month', p_month) + interval '1 month')::date;
+    v_name  text := format('%s_%s', p_parent, to_char(v_start, 'YYYY_MM'));
+BEGIN
+    IF p_parent NOT IN ('ohlcv', 'derivative_metric') THEN
+        RAISE EXCEPTION 'Bilinmeyen partition ebeveyni: %', p_parent;
+    END IF;
+    IF to_regclass(quote_ident(v_name)) IS NULL THEN
+        EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                       v_name, p_parent, v_start, v_end);
+    END IF;
+    RETURN v_name;
+END; $$;
 ```
 
-Bakım işi (`partman.run_maintenance_proc`) `pg_cron` ile günlük koşar. `pg_partman` ve
-`pg_cron` kullanılabilirliği hedef RDS sürümünde deploy öncesi doğrulanacak; ikisi de
-yoksa aylık partition oluşturma işi Spring `@Scheduled` job'una taşınır (~40 satır).
+İki ayrıntı önemli:
 
-Arşivleme: 24 aydan eski 1m verisi S3'e Parquet olarak yazılır. Backtest'in daha geriye
+- **Ebeveyn adı beyaz listede.** Fonksiyon dinamik SQL üretiyor; tablo adının parametreden
+  gelmesi, denetlenmediği takdirde enjeksiyon yüzeyidir.
+- **DEFAULT partition yok.** Olsaydı aralık dışı bir yazma sessizce oraya düşer ve
+  sonradan taşınması gerekirdi. Hata vermesi daha iyi — ama önlenebilir bir hata olduğu
+  için yazma yolu, dokunacağı ayların partition'larını önden açıyor.
+
+Bakım işi Spring `@Scheduled` ile günlük koşar ve önümüzdeki üç ayı hazırlar.
+
+Saklama politikası ve arşivleme henüz yazılmadı. Planlanan: 24 aydan eski 1m verisi
+S3'e Parquet olarak yazılır. Backtest'in daha geriye
 gitmesi gerekirse oradan geri yüklenir. 5m ve üstü zaman dilimleri hacimce küçük
 olduğu için süresiz saklanır.
 
@@ -127,6 +142,15 @@ ON CONFLICT (instrument_id, tf, open_time) DO UPDATE SET
 sessizce yanlış indikatör üretir. Eksikse rollup yazılmaz, boşluk doldurma job'ı
 tetiklenir ve bir sonraki turda tekrar denenir.
 
+### Ingest ilerleme işareti
+
+`ingest_watermark` tablosu enstrüman × zaman dilimi başına son başarılı mumu, son deneme
+zamanını ve üst üste kaç hata alındığını tutar. İki işi var: backfill'in kaldığı yerden
+devam etmesi, ve "bu kaynağın verisi ne kadar taze" sorusunun cevaplanabilmesi.
+
+İşaret geriye gitmez (`GREATEST` ile güncellenir): geçmiş bir aralığın backfill'i,
+ilerlemeyi geri alıp aynı veriyi tekrar tekrar çekmeye yol açmasın.
+
 ### `is_final` — sessiz look-ahead hatası kaynağı
 
 Binance WebSocket kline akışı kapanmamış mumu da yayınlar (`k.x = false`).
@@ -134,10 +158,23 @@ Kapanmamış mumdan hesaplanan indikatör, mum kapanınca değişir — backtest
 "geleceği görmek" demektir.
 
 **Kural:** karar üretimi için kullanılan tüm indikatörler yalnızca `is_final = true`
-mumlardan hesaplanır. Kapanmamış mum sadece açık pozisyonun stop/hedef takibi için
-kullanılabilir. Bu kural `MarketDataReader` API'sinde tip seviyesinde ayrılır:
-`finalBars(...)` ve `liveBar(...)` ayrı metotlardır, ikincisi analiz modülüne
-kapalıdır.
+mumlardan hesaplanır.
+
+Bu kural `MarketDataReader` arayüzünde iki şekilde zorlanıyor:
+
+1. **Kapanmamış mum döndüren metot yok.** Her sorgu `is_final` filtresini taşır; canlı
+   mum ayrı bir arayüzde yaşayacak ve analiz modülüne kapalı olacak (Faz 5).
+2. **Zaman sınırı zorunlu.** "Son 200 mumu ver" diyen bir imza, backtest sırasında
+   sessizce geleceğe uzanır. `lastFinalBars(instrument, timeframe, count, asOf)`
+   imzasında `asOf` isteğe bağlı değil — unutulamaz.
+
+```java
+List<Bar> finalBars(InstrumentRef i, Timeframe tf, Instant fromInclusive, Instant toExclusive);
+List<Bar> lastFinalBars(InstrumentRef i, Timeframe tf, int count, Instant asOf);
+Optional<Bar> finalBarAt(InstrumentRef i, Timeframe tf, Instant openTime);
+List<Gap> findGaps(InstrumentRef i, Timeframe tf, Instant from, Instant to);
+Freshness freshness(InstrumentRef i, Timeframe tf, Instant asOf);
+```
 
 ### Boşluk doldurma
 
@@ -152,7 +189,11 @@ WHERE o.open_time IS NULL;
 5 dakikada bir koşar; bulunan boşluklar Binance REST `/api/v3/klines` ile doldurulur.
 WebSocket kopmaları, deploy'lar ve borsa bakımları bu şekilde kapatılır.
 
-### Canlı buffer (Redis)
+### Canlı buffer (Redis) — Faz 5'e ertelendi
+
+Aşağıdaki tasarım emir gönderme yolu için gerekli; o katman yazılana kadar Redis
+bağımlılığı eklenmedi.
+
 
 | Anahtar | Tip | İçerik | TTL |
 |---|---|---|---|

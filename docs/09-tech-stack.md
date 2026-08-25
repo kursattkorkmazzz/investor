@@ -85,7 +85,7 @@ jOOQ, yazacağımız SQL'i tip güvenli hale getiriyor — soyutlamaya çalışm
 |---|---|
 | Birim | JUnit 5 + AssertJ |
 | Veritabanı | Testcontainers (gerçek PostgreSQL, eklentilerle) |
-| Dış API | WireMock (Binance, FRED, haber kaynakları) |
+| Dış API | WireMock (Binance sözleşme testleri yazıldı; FRED ve haber kaynakları bekliyor) |
 | LLM | Kaydedilmiş cevap fikstürleri + şema doğrulama |
 | Modül sınırları | Spring Modulith `ApplicationModuleTest` |
 | Asenkron | Awaitility |

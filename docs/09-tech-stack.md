@@ -12,7 +12,7 @@
 | Derleme | **Gradle (Kotlin DSL)** | Çok modüllü yapıda Maven'dan hızlı, yapılandırması okunur |
 | Veri erişimi | **Spring `JdbcClient`** | Elle SQL. jOOQ kod üretimi build'i canlı veritabanına ya da Postgres'e özgü DDL ayrıştırmasına bağımlı kılıyordu ([ADR-0006](adr/0006-jooq-yerine-jdbcclient.md)). Tip güvenliğini gerçek PostgreSQL'e karşı koşan testler telafi ediyor. |
 | Migration | **Flyway** | Modül başına migration klasörü |
-| Teknik analiz | **ta4j** | Olgun Java indikatör kütüphanesi; hesap deterministik kalır |
+| Teknik analiz | **ta4j 0.22.0** | Olgun Java indikatör kütüphanesi; hesap deterministik kalır. `DecimalNumFactory` ile BigDecimal aritmetiği — geri testin tekrarlanabilirliği buna bağlı. **0.22.0'a sabit:** 0.22.1+ Java 25 bytecode üretiyor, toolchain 21. `backend/analysis` içinde `implementation` bağımlılığı olarak kapalı. |
 | LLM | **LangChain4j 1.19.0** (`langchain4j` + `langchain4j-open-ai`) | Proje sahibinin tercihi ([ADR-0008](adr/0008-langchain4j.md)). Kendi `LlmClient` / `NewsExtractor` portlarımızın arkasında durur; kütüphane tiplerine dokunan yalnızca iki sınıf var ve bu sınır Gradle'da `implementation` bağımlılığıyla build zamanında zorlanıyor. Varsayılan uç: LangChain4j'in anahtarsız demo ucu. |
 | İstatistik / ML | **Tribuo** | Kalibrasyon için lojistik regresyon; hafif, Java-yerel |
 | Dayanıklılık | **Resilience4j** | Circuit breaker, retry, rate limiter |

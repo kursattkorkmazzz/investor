@@ -156,14 +156,26 @@ Tur başına ~$0.40 → **günde $270**. Sürdürülemez.
 Pahalı LLM sentezine gitmeden önce ucuz, deterministik bir tetikleyici kontrolü yapılır.
 Aşağıdakilerden en az biri olmadan tur açılmaz:
 
-- İndikatör eşiği aşıldı (RSI aşırı bölge, MACD kesişimi, Bollinger kırılımı)
+- İndikatör eşiği **aşıldı** — durum değil *geçiş*: "RSI 28" değil "RSI aşırı satım
+  bölgesine girdi". Durum tetikleyici sayılsaydı düşen bir piyasada RSI günlerce eşiğin
+  altında kalır ve kapı tamamen devre dışı kalırdı.
 - Fiyat/hacim anomalisi (ATR katı üstü hareket, hacim z-skoru eşiği)
 - `materiality > 0.6` olan yeni haber geldi
-- Makro rejim sınıflandırması değişti
-- Açık pozisyonun `invalidation` koşullarından biri tetiklendi
+- Rejim sınıflandırması değişti
+- Açık pozisyonun `invalidation` koşullarından biri tetiklendi *(Faz 4)*
 - Planlı gözden geçirme (açık pozisyon için 4 saatte bir)
 
-Bu kapı, tur sayısını ~%5'e indirir: günde ~38 tam tur.
+Tüm eşikler **göreli**: ATR katı, persentil, fiyata oran. Ölçümle doğrulandı — aynı
+istatistiksel dokuya sahip $30.000 ve $0.30 fiyatlı iki varlık aynı oranda tur açıyor.
+
+Bu kapı **gerçeklendi ve ölçüldü** ([12 — Deterministik analiz](12-deterministik-analiz.md)):
+1 saatlik mumlarda açılma oranı **%14.5**, yani ~3.5 tur/gün/sembol → sekiz sembolde
+~28 tam tur/gün. Yukarıdaki ~%5 tahmini 15 dakikalık kadans içindi; asıl kısıt olan
+günlük tur sayısı tahminin altında kaldı.
+
+> Ölçüm tasarımı üç kez düzeltti: rejim savrulması (248 → 88), MACD gürültüsü
+> (121 → 37) ve Bollinger'ın band ucundan değmesi (94 → 70). Üçü de kod okuyarak
+> görünmüyordu — bütün tetikleyiciler tek tek makul, sorun bir aradaki davranıştaydı.
 
 ### 2. Model kademelendirme
 

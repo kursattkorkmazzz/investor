@@ -98,8 +98,13 @@ kural tabanlı çıkarıcının yerini alıyor ve erişilemezlikte ona dürüst�
 Varsayılan yapılandırma LangChain4j'in anahtarsız demo ucunu gösteriyor.
 Bkz. [11 — LLM katmanı](11-llm-katmani.md).
 
-**Kalan:** ta4j indikatör servisi, istatistik servisi, rejim sınıflandırıcı,
-deterministik tetikleyici kapısı, beş analist ajan.
+**Tamamlanan (2):** `backend/analysis` deterministik yarısı — ta4j gösterge servisi
+(ısınma denetimiyle), istatistik servisi, kural tabanlı rejim sınıflandırıcı ve
+tetikleyici kapısı. Kapı ölçüldü: açılma oranı **%14.5**, yani ~3.5 tur/gün/sembol.
+Ölçüm tasarımı üç kez düzeltti (bkz. [12 — Deterministik analiz](12-deterministik-analiz.md)).
+
+**Kalan:** `Evidence` sözleşmesi, beş analist ajan, `PortfolioManager`,
+`DevilsAdvocate`, tam tur orkestrasyonu.
 
 **Kapı:** Geçmiş bir gün için tam bir analiz turu koşuyor; ajanlar geçerli `Evidence`
 üretiyor; tetikleyici kapısı tur sayısını hedeflenen aralığa indiriyor; LLM maliyeti

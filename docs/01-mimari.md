@@ -83,7 +83,7 @@ Dikkat edilecek iki ok:
 | `market-data` | Binance OHLCV/ticker ingest, partition ve rollup yönetimi, canlı fiyat buffer | `ontology-core` |
 | `knowledge` | Haber, makro ve on-chain ingest; deduplication; varlık eşleştirme (entity linking) | `ontology-core`, `llm` |
 | `llm` | Şemaya zorlanmış LLM erişimi, istem enjeksiyonu savunması, bütçe tavanı, çağrı denetim kaydı | — |
-| `analysis` | ta4j indikatörleri, LLM analiz ajanları, kanıt (evidence) üretimi | `ontology-core`, `llm` |
+| `analysis` | ta4j göstergeleri, istatistik, rejim sınıflandırması, tetikleyici kapısı, LLM analiz ajanları, kanıt (evidence) üretimi | `market-data`, `knowledge`, `llm` |
 | `decision-engine` | Karar yaşam döngüsü, kanıt birleştirme, kalibrasyon, sonuç değerlendirme | `ontology-core`, `analysis` |
 | `risk` | Deterministik limit kontrolleri, pozisyon boyutlandırma, kill-switch | `portfolio` |
 | `execution` | `ExchangePort` soyutlaması, Binance adapter, idempotency, reconciliation | `risk` |

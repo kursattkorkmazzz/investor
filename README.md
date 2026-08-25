@@ -12,8 +12,9 @@ yürütür; kapanan her karardan öğrenerek kendini kalibre eder.
 > deposu, look-ahead güvenli okuma API'si, rollup ve boşluk doldurma; haber toplama ve
 > üç katmanlı tekilleştirme; makro serilerin revizyonlarıyla birlikte ontolojiye yazımı;
 > LangChain4j üzerinden şemaya zorlanmış LLM erişimi, bütçe tavanı, çağrı denetim kaydı
-> ve LLM tabanlı haber çıkarımı.
-> Sıradaki adımlar teknik gösterge servisi, analiz ajanları ve decision engine.
+> ve LLM tabanlı haber çıkarımı; ta4j gösterge servisi, istatistik servisi, rejim
+> sınıflandırıcı ve tur sayısını %14.5'e indiren deterministik tetikleyici kapısı.
+> Sıradaki adımlar analist ajanlar ve decision engine.
 > Bkz. [yol haritası](docs/10-yol-haritasi.md).
 
 ---
@@ -78,6 +79,7 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | 09 | [Tech stack](docs/09-tech-stack.md) | Tam bağımlılık listesi ve her birinin gerekçesi |
 | 10 | [Yol haritası](docs/10-yol-haritasi.md) | Fazlar, çıktılar, kapılar, tahmini süreler |
 | 11 | [LLM katmanı](docs/11-llm-katmani.md) | `LlmClient` portu, enjeksiyon savunması, bütçe tavanı, çağrı kaydı |
+| 12 | [Deterministik analiz](docs/12-deterministik-analiz.md) | Göstergeler, istatistik, rejim, tetikleyici kapısı — ve ölçümün düzelttikleri |
 
 ### Modüller
 
@@ -88,6 +90,7 @@ API dokümanı: `http://localhost:8080/swagger-ui.html`
 | `backend/market-data` | ✅ | OHLCV deposu, rollup, boşluk doldurma, Binance adapter |
 | `backend/knowledge` | ✅ | Haber toplama ve tekilleştirme, makro seriler ve revizyonlar |
 | `backend/llm` | ✅ | LLM erişimi: şema zorlaması, enjeksiyon savunması, bütçe, çağrı kaydı |
+| `backend/analysis` | 🟡 | Göstergeler, istatistik, rejim, tetikleyici kapısı; analist ajanlar bekliyor |
 | `backend/api` | ✅ | REST katmanı (ontoloji + piyasa verisi) |
 | `backend/app` | ✅ | Spring Boot giriş noktası, modül sınırı doğrulaması |
 | `frontend` | 🟡 | Ontology Explorer; grafik ve karar ekranları bekliyor |
@@ -98,7 +101,7 @@ Mimari kararların gerekçeleri: [docs/adr/](docs/adr/)
 
 ## Tech stack (özet)
 
-- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · LangChain4j 1.19 · (ileride ta4j)
+- **Backend:** Java 21 · Spring Boot 4.1 · Spring Modulith · Spring `JdbcClient` · Flyway · LangChain4j 1.19 · ta4j 0.22
 - **Frontend:** React 19 · TypeScript · Vite · TanStack Query · Tailwind 4 · (ileride lightweight-charts)
 - **Veri:** PostgreSQL 16 (AWS RDS) · pg_partman · Redis (Valkey) · (ileride pgvector)
 - **Borsa:** Binance Spot (REST + WebSocket), `ExchangePort` arkasında soyutlanmış

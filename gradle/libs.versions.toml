@@ -9,6 +9,7 @@ assertj         = "3.27.6"
 awaitility      = "4.3.0"
 wiremock        = "3.13.2"
 langchain4j     = "1.19.0"
+ta4j            = "0.22.0"   # 0.22.1+ Java 25 bytecode üretiyor; toolchain 21
 
 [libraries]
 spring-boot-bom       = { module = "org.springframework.boot:spring-boot-dependencies",   version.ref = "springBoot" }
@@ -21,6 +22,7 @@ springdoc-webmvc      = { module = "org.springdoc:springdoc-openapi-starter-webm
 
 langchain4j           = { module = "dev.langchain4j:langchain4j",                           version.ref = "langchain4j" }
 langchain4j-open-ai   = { module = "dev.langchain4j:langchain4j-open-ai",                   version.ref = "langchain4j" }
+ta4j-core             = { module = "org.ta4j:ta4j-core",                                   version.ref = "ta4j" }
 
 testcontainers-bom    = { module = "org.testcontainers:testcontainers-bom",                version.ref = "testcontainers" }
 assertj-core          = { module = "org.assertj:assertj-core",                             version.ref = "assertj" }

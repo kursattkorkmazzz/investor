@@ -12,6 +12,7 @@ include(
     "backend:market-data",
     "backend:knowledge",
     "backend:llm",
+    "backend:analysis",
     "backend:api",
     "backend:app",
 )
